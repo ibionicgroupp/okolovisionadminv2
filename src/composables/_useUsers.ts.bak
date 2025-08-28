@@ -1,0 +1,115 @@
+import { ref, computed } from 'vue'
+import {
+  getFirestore, collection, query, where, orderBy,
+  limit, startAfter, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, QueryConstraint
+} from 'firebase/firestore'
+
+export type UserDoc = {
+  id?: string
+  displayName: string
+  email: string
+  role?: string
+  createdAt?: any
+  keywords?: string[]
+}
+
+const PAGE_SIZE = 10
+
+export function useUsers() {
+  const db = getFirestore()
+  const col = collection(db, 'users')
+
+  const items = ref<UserDoc[]>([])
+  const loading = ref(false)
+  const qText = ref('')
+  const lastDoc = ref<any>(null)
+  const reachedEnd = ref(false)
+
+  function buildQuery(firstPage = true) {
+    const constraints: QueryConstraint[] = []
+
+    // пошук по keywords
+    const term = qText.value.trim().toLowerCase()
+    if (term) constraints.push(where('keywords', 'array-contains', term))
+
+    // сортування та пагінація
+    constraints.push(orderBy('createdAt', 'desc'))
+    if (!firstPage && lastDoc.value) constraints.push(startAfter(lastDoc.value))
+    constraints.push(limit(PAGE_SIZE))
+
+    return query(col, ...constraints)
+  }
+
+  async function fetchFirstPage() {
+    loading.value = true
+    try {
+      const snap = await getDocs(buildQuery(true))
+      items.value = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }))
+      lastDoc.value = snap.docs.at(-1) ?? null
+      reachedEnd.value = snap.size < PAGE_SIZE
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchNextPage() {
+    if (reachedEnd.value || !lastDoc.value) return
+    loading.value = true
+    try {
+      const snap = await getDocs(buildQuery(false))
+      items.value.push(...snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })))
+      lastDoc.value = snap.docs.at(-1) ?? null
+      if (snap.size < PAGE_SIZE) reachedEnd.value = true
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function reload() {
+    lastDoc.value = null
+    reachedEnd.value = false
+    await fetchFirstPage()
+  }
+
+  // CRUD
+  async function createUserDoc(payload: UserDoc) {
+    const data: UserDoc = {
+      displayName: payload.displayName,
+      email: payload.email,
+      role: payload.role || 'user',
+      createdAt: serverTimestamp(),
+      keywords: [
+        (payload.displayName || '').toLowerCase(),
+        (payload.email || '').toLowerCase(),
+      ].filter(Boolean),
+    }
+    await addDoc(col, data as any)
+    await reload()
+  }
+
+  async function updateUserDoc(id: string, patch: Partial<UserDoc>) {
+    const refDoc = doc(db, 'users', id)
+    const base = items.value.find(i => i.id === id) || {}
+    const nextDisplay = (patch.displayName ?? base.displayName ?? '').toLowerCase()
+    const nextEmail = (patch.email ?? base.email ?? '').toLowerCase()
+
+    const data: any = { ...patch }
+    data.keywords = [nextDisplay, nextEmail].filter(Boolean)
+
+    await updateDoc(refDoc, data)
+    await reload()
+  }
+
+  async function deleteUserDoc(id: string) {
+    await deleteDoc(doc(db, 'users', id))
+    items.value = items.value.filter(i => i.id !== id)
+  }
+
+  const hasMore = computed(() => !reachedEnd.value)
+
+  return {
+    items, loading, qText, hasMore,
+    fetchFirstPage, fetchNextPage, reload,
+    createUserDoc, updateUserDoc, deleteUserDoc,
+  }
+}
