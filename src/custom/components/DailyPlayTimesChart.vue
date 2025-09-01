@@ -1,6 +1,6 @@
 <template>
   <div class="w-full">
-    <div class="flex items-center justify-between mb-2 gap-2">
+    <div class="d-flex align-center justify-space-between mb-2 gap-2">
       <button class="btn" @click="shiftMonths(-1)">Місяць назад</button>
       <div class="text-sm text-gray-600">{{ monthLabel }}</div>
       <button class="btn" @click="shiftMonths(1)" :disabled="disableNext">Місяць вперед</button>

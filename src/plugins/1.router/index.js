@@ -58,7 +58,7 @@ router.beforeEach(async (to) => {
 
     // навпаки, якщо ти вже увійшов і зайшов на /login — редірект на домашню
     if (isPublic && isAuthed && (to.name === 'login' || to.path.includes('/login'))) {
-        return { name: 'root' } // або постав будь-який дефолтний маршрут
+        return { name: 'users' } // або постав будь-який дефолтний маршрут
     }
 
     // інакше — пускаємо

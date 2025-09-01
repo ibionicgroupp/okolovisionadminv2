@@ -1,5 +1,20 @@
 <script setup>
 import avatar1 from '@images/avatars/avatar-1.png'
+import { useRouter } from 'vue-router'
+import { signOut } from 'firebase/auth'
+import { auth } from '@/plugins/firebase'
+
+const router = useRouter()
+
+const logout = async () => {
+  try {
+    await signOut(auth)
+    router.push({ name: 'login' }) // або '/login'
+  } catch (error) {
+    console.error('Logout error:', error)
+  }
+}
+
 </script>
 
 <template>
@@ -47,9 +62,9 @@ import avatar1 from '@images/avatars/avatar-1.png'
               </VListItemAction>
             </template>
 
-            <VListItemTitle class="font-weight-semibold">
-              John Doe
-            </VListItemTitle>
+<!--            <VListItemTitle class="font-weight-semibold">-->
+<!--              John Doe-->
+<!--            </VListItemTitle>-->
             <VListItemSubtitle>Admin</VListItemSubtitle>
           </VListItem>
 
@@ -111,7 +126,7 @@ import avatar1 from '@images/avatars/avatar-1.png'
           <VDivider class="my-2" />
 
           <!-- 👉 Logout -->
-          <VListItem to="/login">
+          <VListItem @click="logout">
             <template #prepend>
               <VIcon
                 class="me-2"
@@ -119,8 +134,7 @@ import avatar1 from '@images/avatars/avatar-1.png'
                 size="22"
               />
             </template>
-
-            <VListItemTitle>Logout</VListItemTitle>
+            <VListItemTitle>Вихід</VListItemTitle>
           </VListItem>
         </VList>
       </VMenu>

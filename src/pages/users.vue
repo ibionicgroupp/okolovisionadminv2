@@ -110,6 +110,7 @@ const headers = [
   { title: 'Контакти',       key: 'contacts',         sortable: false, width: 240 },
   { title: 'Коментар',       key: '_comments',        sortable: false },
   { title: 'Дата створення', key: '_createdAtSort',   sortable: true,  width: 160 },
+  { title: '', key: 'actions',   sortable: false,  width: 160 },
 ]
 
 /* ---------------- FETCH ---------------- */
@@ -183,8 +184,11 @@ const rowsFiltered = computed(() => {
   if (!q) return users.value
   return users.value.filter(r => r._searchBlob.includes(q))
 })
-function goToUser(item: any) {
-  router.push(`/user/${item.id}`)
+function goToUser(event: any) {
+  const user = event.item
+  if (user?.id) {
+    router.push(`/user/${user.id}`)
+  }
 }
 
 /* ---------------- COPY TO CLIPBOARD ---------------- */
@@ -364,12 +368,24 @@ onMounted(initialLoad)
               <!-- Дата створення -->
               <template #item._createdAtSort="{ item }">
                 {{ formatDate(item.dateCreated) }}
+
               </template>
 
               <!-- Дії -->
               <template #item.actions="{ item }">
-                <VBtn variant="text" color="primary" class="text-decoration-underline px-0" @click="router.push(`/user/${item.id}`)">
-                  Редагувати
+
+                <VBtn
+                  size="small"
+                  icon
+                  rounded
+                   color="primary"
+                  variant="tonal"
+                  @click="router.push(`/user/${item.id}`)"
+                >
+                  <VIcon
+                    icon="tabler-edit"
+                    size="20"
+                  />
                 </VBtn>
               </template>
 

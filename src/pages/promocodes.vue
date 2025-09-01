@@ -306,12 +306,20 @@ onMounted(loadPromos)
 
               <!-- Код -->
               <template #item.code="{ item }">
-                <div class="d-flex align-center gap-x-2">
-                  <code>{{ item.code }}</code>
-                  <VBtn size="x-small" icon variant="text" @click="copy(item.code)">
-                    <VIcon icon="tabler-copy" size="16"/>
-                  </VBtn>
-                </div>
+<!--                <div class="d-flex align-center gap-x-2">-->
+<!--                  <code>{{ item.code }}</code>-->
+<!--                  <VBtn size="x-small" icon variant="text" @click="copy(item.code)">-->
+<!--                    <VIcon icon="tabler-copy" size="16"/>-->
+<!--                  </VBtn>-->
+<!--                </div>-->
+
+                <VTooltip text="Натисніть щоб скопіювати" location="top">
+                  <template #activator="{ props }">
+                    <button v-bind="props" v-if="item.code" class="linklike" type="button" @click="copy(item.code)">
+                      {{ item.code }}
+                    </button>
+                  </template>
+                </VTooltip>
               </template>
 
               <!-- Дата створення -->
@@ -420,3 +428,16 @@ onMounted(loadPromos)
     {{ copyText }}
   </VSnackbar>
 </template>
+
+
+<style scoped>
+.linklike {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  color: rgb(var(--v-theme-primary));
+  text-align: left;
+}
+</style>

@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import {ref, onMounted, computed} from 'vue'
+import {useRoute, useRouter} from 'vue-router'
 import axios from 'axios'
+import themeUser from '@images/pages/user-profile-header-bg.png'
 
 // CF-ендпоінт
 const CF_ENDPOINT = 'https://us-central1-okolovision-48840.cloudfunctions.net/userGetData'
+const CF_UPDATE_PROFILE = 'https://us-central1-okolovision-48840.cloudfunctions.net/userUpdateProfile'
 
-// автороутер: приватна сторінка
-definePage({ meta: { layout: 'default' } })
+definePage({meta: {layout: 'default'}})
 
-// ТВОЇ компоненти:
+// ТВОЇ компоненти
 import DailyPlayTimesChart from '@/custom/components/DailyPlayTimesChart.vue'
 import ClinicUsersTable from '@/custom/components/ClinicUsersTable.vue'
 
@@ -21,81 +22,312 @@ const user = ref<UserData | null>(null)
 const loading = ref(false)
 const errorMsg = ref('')
 
+// snackbar
+const copySnackbar = ref(false)
+const copyText = ref('')
+
 // helpers
-function toDate(v:any){ const d=new Date(v); return Number.isNaN(d.getTime())?null:d }
-function formatDT(v:any){
-  const d=toDate(v); if(!d) return '—'
-  return d.toLocaleDateString('uk-UA')+' '+d.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'})
+function toDate(v: any) {
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d
 }
-function startOfDay(d:Date){ const x=new Date(d); x.setHours(0,0,0,0); return x }
-function parseSubDate(v:any){
-  if(!v) return null; if(v instanceof Date) return v; if(typeof v==='number') return new Date(v)
-  const s=String(v).trim()
-  if(/^\d{4}-\d{2}-\d{2}(?:[T ].*)?$/.test(s)){ const d=new Date(s); return isNaN(d as any)?null:d }
-  const m=s.match(/^(\d{2})[-/.](\d{2})[-/.](\d{4})$/); if(m) return new Date(+m[3],+m[2]-1,+m[1])
+
+function formatDT(v: any) {
+  const d = toDate(v);
+  if (!d) return '—'
+  return d.toLocaleDateString('uk-UA') + ' ' + d.toLocaleTimeString('uk-UA', {hour: '2-digit', minute: '2-digit'})
+}
+
+function startOfDay(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x
+}
+
+function parseSubDate(v: any) {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  if (typeof v === 'number') return new Date(v)
+  const s = String(v).trim()
+  if (/^\d{4}-\d{2}-\d{2}(?:[T ].*)?$/.test(s)) {
+    const d = new Date(s);
+    return isNaN(d as any) ? null : d
+  }
+  const m = s.match(/^(\d{2})[-/.](\d{2})[-/.](\d{4})$/);
+  if (m) return new Date(+m[3], +m[2] - 1, +m[1])
   return null
 }
-function isActive(u:any){ return u?.subscription?.isActive===true }
-function isValidDateOff(u:any){
-  const end=parseSubDate(u?.subscription?.subscriptionEndDate)
-  return !!end && startOfDay(end).getTime()>=startOfDay(new Date()).getTime()
+
+function isActive(u: any) {
+  return u?.subscription?.isActive === true
 }
-function isValid(u:any){ return isActive(u)&&isValidDateOff(u) }
-function isBinocular(u:any){
-  const v=u?.settings?.IsBinocularMode ?? u?.settings?.isBinocularMode ?? u?.settings?.binocularMode ?? u?.settings?.BinocularMode
-  return v===true||v===1||v==='1'||v==='true'||v==='True'
+
+function isValidDateOff(u: any) {
+  const end = parseSubDate(u?.subscription?.subscriptionEndDate)
+  return !!end && startOfDay(end).getTime() >= startOfDay(new Date()).getTime()
 }
-function isClinic(u:any){ const v=u?.isClinic ?? u?.IsClinic ?? u?.clinic; return v===true||v===1||v==='1'||v==='true'||v==='True' }
-function kyivKey(){
-  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Kyiv',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date())
-  const y=parts.find(p=>p.type==='year')?.value, m=parts.find(p=>p.type==='month')?.value, d=parts.find(p=>p.type==='day')?.value
+
+function isValid(u: any) {
+  return isActive(u) && isValidDateOff(u)
+}
+
+function isBinocular(u: any) {
+  const v = u?.settings?.IsBinocularMode ?? u?.settings?.isBinocularMode ?? u?.settings?.binocularMode ?? u?.settings?.BinocularMode
+  return v === true || v === 1 || v === '1' || v === 'true' || v === 'True'
+}
+
+function isClinic(u: any) {
+  const v = u?.isClinic ?? u?.IsClinic ?? u?.clinic;
+  return v === true || v === 1 || v === '1' || v === 'true' || v === 'True'
+}
+
+function kyivKey() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Kyiv',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date())
+  const y = parts.find(p => p.type === 'year')?.value, m = parts.find(p => p.type === 'month')?.value,
+    d = parts.find(p => p.type === 'day')?.value
   return `${y}-${m}-${d}`
 }
-function usedMinutesToday(u:any){
-  const t=u?.subscription?.dailyPlayTimes ?? u?.dailyPlayTimes ?? {}
+
+function usedMinutesToday(u: any) {
+  const t = u?.subscription?.dailyPlayTimes ?? u?.dailyPlayTimes ?? {}
   return Math.round(Number(t?.[kyivKey()] ?? 0))
 }
 
-const fullName = computed(()=> user.value ? `${user.value.firstName??''} ${user.value.lastName??''}`.trim()||'—':'—')
+const fullName = computed(() => user.value ? `${user.value.firstName ?? ''} ${user.value.lastName ?? ''}`.trim() || '—' : '—')
 
 // fetch
-async function fetchUser(){
-  loading.value=true; errorMsg.value=''
-  try{
-    const id=route.params.id as string
-    const res=await axios.post(CF_ENDPOINT,{ userId:id })
-    user.value=res.data?.data ?? null
-  }catch(e:any){
-    console.error(e); errorMsg.value=e?.response?.data?.message||'Не вдалося завантажити користувача'
-  }finally{ loading.value=false }
+async function fetchUser() {
+  loading.value = true;
+  errorMsg.value = ''
+  try {
+    const id = route.params.id as string
+    const res = await axios.post(CF_ENDPOINT, {userId: id})
+    user.value = res.data?.data ?? null
+  } catch (e: any) {
+    console.error(e);
+    errorMsg.value = e?.response?.data?.message || 'Не вдалося завантажити користувача'
+  } finally {
+    loading.value = false
+  }
 }
 
 onMounted(fetchUser)
 
-// дії — заглушки (заміниш на свої CF)
-function editUser() {}
-function deleteUser() {}
-function clearDeviceId() {}
+// CF endpoint для оновлення isClinic
+const CF_UPDATE_CLINIC = 'https://us-central1-okolovision-48840.cloudfunctions.net/userUpdateIsClinic'
+
+async function toggleClinic(e: Event) {
+  if (!user.value) return
+
+  const target = e.target as HTMLInputElement
+  const newValue = target.checked
+
+  try {
+    await axios.post(CF_UPDATE_CLINIC, {
+      userId: user.value.id,   // ⚠️ тут перевір чи у тебе поле `id` чи `uid`
+      isClinic: newValue,
+    })
+
+    // локально оновлюємо
+    user.value.isClinic = newValue
+    copyText.value = 'isClinic успішно оновлено'
+    copySnackbar.value = true
+  } catch (err: any) {
+    console.error('Помилка при оновленні isClinic', err)
+    console.error('Помилка при оновленні isClinic', err)
+    copyText.value = 'Помилка при оновленні'
+    copySnackbar.value = true
+  }
+}
+
+
+// --------- MODAL EDIT ----------
+const editDialog = ref(false)
+
+const editForm = ref({
+  firstName: '',
+  lastName: '',
+  phoneNumber: '',
+  email: '',
+  gender: '',
+  comments: '',
+  subscriptionEndDate: null as any,
+  dailyPlayTimeLimit: null as any,
+})
+
+const errors = ref<{ firstName?: string; lastName?: string }>({})
+
+function editUser() {
+  if (!user.value) return
+  editForm.value = {
+    firstName: user.value.firstName ?? '',
+    lastName: user.value.lastName ?? '',
+    phoneNumber: user.value.phoneNumber ?? '',
+    email: user.value.email ?? '',
+    gender: user.value.gender ?? '',
+    comments: user.value.comments ?? '',
+    subscriptionEndDate: user.value.subscription?.subscriptionEndDate ?? null,
+    dailyPlayTimeLimit: user.value.subscription?.dailyPlayTimeLimit ?? null,
+  }
+  editDialog.value = true
+}
+
+function validateForm() {
+  errors.value = {}
+  if (!editForm.value.firstName.trim()) {
+    errors.value.firstName = 'Імʼя обовʼязкове'
+  }
+  if (!editForm.value.lastName.trim()) {
+    errors.value.lastName = 'Прізвище обовʼязкове'
+  }
+  return Object.keys(errors.value).length === 0
+}
+
+async function saveUser() {
+  if (!validateForm()) return
+  if (!user.value) return
+
+  try {
+    const payload = {
+      userId: user.value.id,   // ⚠️ перевір що у тебе саме `id` а не `uid`
+      updatedData: {
+        firstName: editForm.value.firstName,
+        lastName: editForm.value.lastName,
+        phoneNumber: editForm.value.phoneNumber,
+        email: editForm.value.email,
+        gender: editForm.value.gender,
+        comments: editForm.value.comments,
+        subscription: {
+          subscriptionEndDate: editForm.value.subscriptionEndDate,
+          dailyPlayTimeLimit: editForm.value.dailyPlayTimeLimit,
+          isActive: true, // можна підставити значення по логіці
+        },
+      },
+    }
+
+    await axios.post(CF_UPDATE_PROFILE, payload)
+
+    // оновлюємо локальні дані користувача
+    user.value = {...user.value, ...payload.updatedData}
+
+    copyText.value = 'Успішно збережено'
+    copySnackbar.value = true
+    editDialog.value = false
+  } catch (err: any) {
+    console.error('Помилка при оновленні користувача', err)
+    copyText.value = 'Помилка при збереженні'
+    copySnackbar.value = true
+  }
+}
+
+// інші дії
+function deleteUser() {
+}
+
+function clearDeviceId() {
+}
 </script>
 
+
 <template>
+  <!-- Модальне вікно -->
+  <VDialog v-model="editDialog" max-width="600">
+    <VCard>
+      <VCardTitle>Редагування користувача</VCardTitle>
+      <VDivider/>
+      <VCardText>
+        <VTextField
+          v-model="editForm.firstName"
+          label="Імʼя"
+          :error-messages="errors.firstName"
+          required
+          class="mb-4"
+        />
+        <VTextField
+          v-model="editForm.lastName"
+          label="Прізвище"
+          :error-messages="errors.lastName"
+          required
+          class="mb-4"
+        />
+        <VTextField
+          v-model="editForm.phoneNumber"
+          label="Телефон"
+          prefix="+38"
+          class="mb-4"
+        />
+
+        <VTextField
+          v-model="editForm.email"
+          label="Email"
+          type="email"
+          class="mb-4"
+        />
+        <VSelect
+          v-model="editForm.gender"
+          label="Стать"
+          :items="[
+    { title: 'Чоловіча', value: 'Male' },
+    { title: 'Жіноча', value: 'Female' },
+    { title: 'Не вказано', value: 'Not specified' }
+  ]"
+          item-title="title"
+          item-value="value"
+          class="mb-4"
+        />
+        <VTextarea
+          v-model="editForm.comments"
+          label="Коментар"
+          class="mb-4"
+        />
+
+        <VTextField
+          v-model="editForm.dailyPlayTimeLimit"
+          label="Хвилин на день"
+          type="number"
+          class="mb-4"
+        />
+        <VDateInput
+          v-model="editForm.subscriptionEndDate"
+          label="Активний до"
+          class="mb-4"
+        />
+      </VCardText>
+      <VDivider/>
+      <VCardActions>
+        <VBtn text @click="editDialog=false">Скасувати</VBtn>
+        <VBtn color="primary" @click="saveUser">Зберегти</VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+
+  <!-- Snackbar -->
+  <VSnackbar v-model="copySnackbar" timeout="1600" location="top" color="success">
+    {{ copyText }}
+  </VSnackbar>
+
+  <!-- Основний контент -->
   <VRow>
     <VCol cols="12">
       <VCard>
         <VCardTitle class="d-flex align-center justify-space-between">
           <div class="d-flex align-center gap-x-3">
-            <VBtn variant="text" prepend-icon="tabler-arrow-left" @click="router.push('/users-page')">
-              Назад до списку
+            <VBtn variant="text" prepend-icon="tabler-arrow-left" @click="router.push('/users')">
+              Назад
             </VBtn>
             <span class="text-h6">Картка користувача</span>
           </div>
           <div class="d-flex align-center gap-x-2">
             <VBtn size="small" color="primary" @click="editUser">Редагувати</VBtn>
             <VBtn size="small" color="error" variant="tonal" @click="deleteUser">Видалити</VBtn>
-            <VBtn size="small" color="pink" variant="tonal" @click="clearDeviceId">Очистити Device ID</VBtn>
           </div>
         </VCardTitle>
-        <VDivider />
+        <VDivider/>
 
         <VCardText>
           <div v-if="errorMsg" class="mb-4">
@@ -103,7 +335,7 @@ function clearDeviceId() {}
           </div>
 
           <div v-if="loading" class="d-flex justify-center py-8">
-            <VProgressCircular indeterminate />
+            <VProgressCircular indeterminate/>
           </div>
 
           <template v-else>
@@ -113,10 +345,23 @@ function clearDeviceId() {}
                 <VCard variant="tonal" class="pa-4">
                   <div class="d-flex flex-column align-center text-center">
                     <div class="w-100 position-relative mb-8">
-                      <div class="rounded w-100" style="height:112px; background: linear-gradient(90deg,#eee,#ddd);" />
+                      <VImg
+
+                        :src="themeUser"
+                        class="mx-auto"
+                      />
+                      <!--                      <div class="rounded w-100 " style="height:112px; background: linear-gradient(90deg,#eee,#ddd);" />-->
                       <div class="position-absolute" style="top:72px; left:0; right:0;">
-                        <div class="mx-auto d-flex align-center justify-center rounded-circle elevation-2" style="width:84px; height:84px; background:#e0e0e0; border:4px solid white;">
-                          <span class="text-h6">{{ (fullName[0] || 'U') }}</span>
+                        <div class="mx-auto d-flex align-center justify-center  rounded-circle elevation-2"
+                             style="width:84px; height:84px; background:#e0e0e0; border:4px solid white;">
+                          <!--                          <span class="text-h6">{{ (fullName[0] || 'U') }}</span>-->
+
+
+                          <VIcon
+                            color="primary"
+                            size="55"
+                            icon="tabler-user"
+                          />
                         </div>
                       </div>
                     </div>
@@ -136,7 +381,12 @@ function clearDeviceId() {}
                         {{ isBinocular(user) ? 'Два ока' : 'Одне око' }}
                       </span>
                       <label class="text-caption d-inline-flex align-center">
-                        <input type="checkbox" class="me-1" :checked="isClinic(user)" disabled>
+                        <input
+                          type="checkbox"
+                          class="me-1"
+                          :checked="isClinic(user)"
+                          @change="toggleClinic($event)"
+                        >
                         Клініка
                       </label>
                     </div>
@@ -144,7 +394,8 @@ function clearDeviceId() {}
                     <div class="mt-4 text-caption text-medium-emphasis">
                       <div><strong>Активно до:</strong> {{ user?.subscription?.subscriptionEndDate ?? '—' }}</div>
                       <div><strong style="color:red;">Сьогодні:</strong> {{ usedMinutesToday(user) }} хв.</div>
-                      <div><strong>Доступний на день:</strong> {{ user?.subscription?.dailyPlayTimeLimit ?? '—' }} хв.</div>
+                      <div><strong>Доступний на день:</strong> {{ user?.subscription?.dailyPlayTimeLimit ?? '—' }} хв.
+                      </div>
                     </div>
                   </div>
                 </VCard>
@@ -166,7 +417,7 @@ function clearDeviceId() {}
               <VCol cols="12">
                 <VCard class="pa-4">
                   <div class="text-subtitle-1 mb-3">Промокоди</div>
-                  <div class="text-caption text-medium-emphasis mb-2">Список використаних промокодів</div>
+                  <!--                  <div class="text-caption text-medium-emphasis mb-2">Список використаних промокодів</div>-->
 
                   <VTable class="text-no-wrap">
                     <thead>
@@ -189,8 +440,8 @@ function clearDeviceId() {}
               </VCol>
 
               <!-- Користувачі клініки -->
-              <VCol cols="12" v-if="user">
-                <ClinicUsersTable :clinic-user="user" :users="[]" />
+              <VCol cols="12" v-if="isClinic(user)">
+                <ClinicUsersTable :clinic-user="user" :users="[]"/>
               </VCol>
             </VRow>
           </template>
@@ -201,7 +452,15 @@ function clearDeviceId() {}
 </template>
 
 <style scoped>
-.position-absolute { position: absolute; }
-.position-relative { position: relative; }
-.rounded-circle { border-radius: 9999px; }
+.position-absolute {
+  position: absolute;
+}
+
+.position-relative {
+  position: relative;
+}
+
+.rounded-circle {
+  border-radius: 9999px;
+}
 </style>
