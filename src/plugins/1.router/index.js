@@ -20,9 +20,13 @@ const router = createRouter({
 
     return { top: 0 }
   },
-  extendRoutes: pages => [
-    ...[...pages].map(route => recursiveLayouts(route)),
-  ],
+    extendRoutes: pages => [
+        {
+            path: '/',
+            redirect: '/users',
+        },
+        ...[...pages].map(route => recursiveLayouts(route)),
+    ],
 })
 
 

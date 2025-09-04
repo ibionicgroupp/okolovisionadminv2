@@ -116,6 +116,44 @@ async function fetchUser() {
   }
 }
 
+const gameNames: Record<string, string> = {
+  "a727cd04-7f77-47a0-86c8-38e57e11f84b": "Дорога тварин",
+  "6d24ce1e-1017-48a3-b6f6-082979e2aaba": "Космічна куля",
+  "39615c8e-4575-4d45-adc9-8aa04de879ac": "Хрестики",
+  "cbb292d7-68a3-41f2-b20b-487d20c9153f": "Тандем",
+  "4f5dd55a-bd2f-4fc6-b44d-6d66cfaba210": "Полювання на качок",
+  "905096b1-af85-4f8e-acaf-7671627ad20d": "Фузія гоу +",
+  "65917f06-8102-4a45-8f0f-67d64e043564": "Фузія гоу -",
+  "d6a28af8-cf9c-4069-ab99-93df2131e89d": "Фузія гоу",
+  "a086ab0b-384b-4e97-8b06-fd841890e89a": "Фузія Дуо",
+  "2c22657b-5a2a-4b26-891f-d178a8825e75": "Автомагістраль +",
+  "a330cdaf-e25d-4595-9c85-6d7f8d8adb3a": "Автомагістраль -",
+  "245a4077-e116-4348-939b-23f21f8763ca": "Вище хмар",
+  "c7894e9a-a734-41bc-8d4c-90df35942130": "Магічні фрукти",
+  "9b50f940-5679-4fd8-a58b-3f6809343428": "Пазли",
+  "2a9419f0-b096-427a-9be3-295de05f50da": "Маріо",
+  "9386aaf0-27c0-4ccb-a08f-fa6e01d6cc16": "Формоленд",
+  "e3d606be-89df-4090-8246-676ceba47098": "Павучок",
+  "5739dd72-a73f-4d5c-a96a-3a9034d33a4f": "Тетріс",
+  "fd5bcdea-8aa8-4938-8c65-8c7d0cddfd86": "Твістерс",
+}
+
+const gamesList = computed(() => {
+  if (!user.value?.gameRecords) return []
+  return Object.entries(user.value.gameRecords)
+    .map(([gameId, rec]: any) => ({
+      id: gameId,
+      name: gameNames[gameId] ?? gameId,
+      attempts: rec.attempts ?? 0,
+      sessions: rec.sessions ?? 0,
+      successfulAttempts: rec.successfulAttempts ?? 0,
+      totalPoints: rec.totalPoints ?? 0,
+      correctColorRecord: rec.correctColorRecord ?? {},
+    }))
+    .sort((a, b) => b.attempts - a.attempts) // 🔹 спочатку ті, в кого більше спроб
+})
+
+
 onMounted(fetchUser)
 
 // CF endpoint для оновлення isClinic
@@ -145,6 +183,18 @@ async function toggleClinic(e: Event) {
   }
 }
 
+function formatDateTime(v: any) {
+  const d = new Date(v)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('uk-UA', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }) + ' ' + d.toLocaleTimeString('uk-UA', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
 
 // --------- MODAL EDIT ----------
 const editDialog = ref(false)
@@ -299,9 +349,10 @@ function clearDeviceId() {
         />
       </VCardText>
       <VDivider/>
-      <VCardActions>
-        <VBtn text @click="editDialog=false">Скасувати</VBtn>
-        <VBtn color="primary" @click="saveUser">Зберегти</VBtn>
+      <VCardActions class="pt-3">
+        <VBtn size="small" color="error" variant="flat" @click="editDialog=false">Скасувати</VBtn>
+        <VBtn size="small" color="primary" variant="flat" @click="saveUser">Зберегти</VBtn>
+
       </VCardActions>
     </VCard>
   </VDialog>
@@ -323,8 +374,8 @@ function clearDeviceId() {
             <span class="text-h6">Картка користувача</span>
           </div>
           <div class="d-flex align-center gap-x-2">
-            <VBtn size="small" color="primary" @click="editUser">Редагувати</VBtn>
-            <VBtn size="small" color="error" variant="tonal" @click="deleteUser">Видалити</VBtn>
+            <VBtn size="small" color="primary" variant="flat" @click="editUser">Редагувати</VBtn>
+            <VBtn size="small" color="error" variant="flat" @click="deleteUser">Видалити</VBtn>
           </div>
         </VCardTitle>
         <VDivider/>
@@ -371,6 +422,7 @@ function clearDeviceId() {
                       <div class="text-medium-emphasis">Email: {{ user?.email || '—' }}</div>
                       <div class="text-medium-emphasis">Телефон: {{ user?.phoneNumber || '—' }}</div>
                       <div class="text-medium-emphasis">Дата реєстрації: {{ formatDT(user?.dateCreated) }}</div>
+                      <div class="text-medium-emphasis">Коментар: {{ user?.comments || '—' }}</div>
                     </div>
 
                     <div class="d-flex flex-wrap justify-center gap-x-3 gap-y-2 mt-4">
@@ -391,10 +443,13 @@ function clearDeviceId() {
                       </label>
                     </div>
 
-                    <div class="mt-4 text-caption text-medium-emphasis">
-                      <div><strong>Активно до:</strong> {{ user?.subscription?.subscriptionEndDate ?? '—' }}</div>
+                    <div class="mt-4 text-caption text-medium-emphasis d-flex justify-space-between w-100">
+                      <div>
+                        <strong>Активно до:</strong>
+                        {{ formatDateTime(user?.subscription?.subscriptionEndDate) }}
+                      </div>
                       <div><strong style="color:red;">Сьогодні:</strong> {{ usedMinutesToday(user) }} хв.</div>
-                      <div><strong>Доступний на день:</strong> {{ user?.subscription?.dailyPlayTimeLimit ?? '—' }} хв.
+                      <div><strong>Доступно на день:</strong> {{ user?.subscription?.dailyPlayTimeLimit ?? '—' }} хв.
                       </div>
                     </div>
                   </div>
@@ -445,6 +500,120 @@ function clearDeviceId() {
               </VCol>
             </VRow>
           </template>
+        </VCardText>
+      </VCard>
+    </VCol>
+    <VCol cols="12">
+      <VCard>
+        <VCardTitle class="d-flex align-center justify-space-between">
+          <div class="d-flex align-center gap-x-3">
+
+            <span class="text-h6">Ігри (сортування по кількості спроб )</span>
+          </div>
+
+        </VCardTitle>
+        <VDivider/>
+
+        <VCardText>
+
+
+          <VRow>
+            <VCol
+              v-for="game in gamesList"
+              :key="game.id"
+              cols="12" sm="6" md="4" lg="3"
+            >
+              <VCard class="pa-4 text-center">
+                <div class="text-medium-emphasis mb-2">{{ game.name }}</div>
+
+                <VTooltip text="Прогрес це - успішні спроби / спроби * 100">
+                  <template #activator="{ props }">
+                    <VProgressCircular
+                      v-bind="props"
+                      :rotate="360"
+                      :size="70"
+                      :width="6"
+                      :model-value="game.attempts ? Math.round((game.successfulAttempts / game.attempts) * 100) : 0"
+                      color="primary"
+                      class="mb-2"
+                    >
+                      {{ game.attempts ? Math.round((game.successfulAttempts / game.attempts) * 100) : 0 }}%
+                    </VProgressCircular>
+                  </template>
+                </VTooltip>
+
+                <hr class="v-divider v-divider.v-divider--vertical">
+                <div class="d-flex justify-space-between mt-2 mb-2">
+
+                  <VTooltip text="Кількість спроб зіграти в гру">
+                    <template #activator="{ props }">
+                      <div v-bind="props" class=" " style="width: 40%">
+                        <div class="text-caption">Спроби</div>
+                        <div>{{ game.attempts }}</div>
+                      </div>
+
+                    </template>
+                  </VTooltip>
+                  <hr class="v-divider--vertical" style="border-color:#e3e0f51f">
+
+
+                  <VTooltip text="Кількість успішних спроб (тобто виграли)">
+                    <template #activator="{ props }">
+                      <div v-bind="props" style="width: 40%">
+                        <div class="text-caption">Успіхи</div>
+                        <VChip color="success">{{ game.successfulAttempts }}</VChip>
+                      </div>
+                    </template>
+                  </VTooltip>
+                </div>
+                <hr class="v-divider">
+
+                <div class="d-flex justify-space-between mt-2 mb-2">
+
+                  <VTooltip
+                    text="Це кількість уроків, урок рахується якщо гравець почав грати гру і зіграв мінімум 4 хв (в нас є панелька де пацієнти клініки і там відображається кількість уроків скільки зіграв пацієнт) ">
+                    <template #activator="{ props }">
+                      <div v-bind="props"  style="width: 40%">
+                        <div class="text-caption">Уроки</div>
+                        <div>{{ game.sessions }}</div>
+                      </div>
+                    </template>
+                  </VTooltip>
+
+                  <hr class="v-divider--vertical" style="border-color:#e3e0f51f">
+
+                  <VTooltip text="Очки які гравець здобуває в грі">
+                    <template #activator="{ props }">
+                      <div v-bind="props" style="width: 40%">
+                        <div class="text-caption">Очки</div>
+                        <div>{{ game.totalPoints }}</div>
+                      </div>
+                    </template>
+                  </VTooltip>
+
+                </div>
+                <hr class="v-divider ">
+
+                <div class="mt-2">
+                  <div class="text-caption text-medium-emphasis mb-1">Коректність кольорів (2 ока)</div>
+                  <div class="d-flex justify-space-between">
+                    <div>
+                      <div class="text-caption">Червоні (помилки)</div>
+                      <div>{{ game.correctColorRecord.redIncorrect ?? 0 }}</div>
+                    </div>
+                    <div>
+                      <div class="text-caption">Сині (помилки)</div>
+                      <div>{{ game.correctColorRecord.blueIncorrect ?? 0 }}</div>
+                    </div>
+                    <div>
+                      <div class="text-caption">Влучання</div>
+                      <div>{{ game.correctColorRecord.totalCorrect ?? 0 }}</div>
+                    </div>
+                  </div>
+                </div>
+              </VCard>
+            </VCol>
+          </VRow>
         </VCardText>
       </VCard>
     </VCol>
