@@ -555,8 +555,6 @@ function clearDeviceId() {
                     </template>
                   </VTooltip>
                   <hr class="v-divider--vertical" style="border-color:#e3e0f51f">
-
-
                   <VTooltip text="Кількість успішних спроб (тобто виграли)">
                     <template #activator="{ props }">
                       <div v-bind="props" style="width: 40%">
