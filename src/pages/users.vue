@@ -1,34 +1,18 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import UserStats from "../pages/UserStats.vue"  // шлях поправ залежно від структури
+import UserStats from "../pages/UserStats.vue"
 import axios from 'axios'
 
 definePage({ meta: { layout: 'default' } })
 const router = useRouter()
 
-const snackbar = ref(false)
-const snackbarMsg = ref("")
-function showSnackbar(msg: string) {
-  snackbarMsg.value = msg
-  snackbar.value = true
-}
-async function copyToClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text)
-    showSnackbar("Скопійовано")
-  } catch (e) {
-    console.error("Copy failed", e)
-  }
-}
-
 /* ---------------- CONFIG ---------------- */
 const CF_ENDPOINT = "https://adminlistuserslitev2-956914206562.europe-west1.run.app"
-
-const FIRST_PAGE_SIZE = 200          // перша порція (швидкий рендер)
-const NEXT_PAGE_SIZE  = 400          // наступні порції (менше запитів)
-const TABLE_PAGE_SIZE = 20           // рядків на сторінку в таблиці
-const PREFETCH_THRESHOLD = 2         // коли лишається 2 сторінки — тягнемо наступну порцію
+const FIRST_PAGE_SIZE = 200
+const NEXT_PAGE_SIZE  = 400
+const TABLE_PAGE_SIZE = 10
+const PREFETCH_THRESHOLD = 2
 
 /* ---------------- STATE ---------------- */
 type UserRaw = {
@@ -39,7 +23,16 @@ type UserRaw = {
   phoneNumber?: string
   comments?: string
   dateCreated?: any
-  subscription?: { subscriptionEndDate?: any }
+  subscription?: { subscriptionEndDate?: any, subscriptionEndMs?: number, isActive?: boolean }
+  isClinic?: boolean
+  _isActive?: boolean
+  _isInactive?: boolean
+  _subscriptionEndSort?: number
+  _fullName?: string
+  _email?: string
+  _phone?: string
+  _comments?: string
+  _searchBlob?: string
   [k: string]: any
 }
 type PageToken = null | { dateCreated: any, id: string }
@@ -48,7 +41,7 @@ const loading = ref(false)
 const loadingMore = ref(false)
 const errorMsg = ref('')
 
-const users = ref<UserRaw[]>([])     // збагачені елементи одразу кладемо сюди
+const users = ref<UserRaw[]>([])
 let nextPageToken: PageToken = null
 let currentDirection: 'asc'|'desc' = 'desc'
 
@@ -56,15 +49,14 @@ const tablePage = ref(1)
 const tableItemsPerPage = ref(TABLE_PAGE_SIZE)
 
 /* --- пошук із дебаунсом --- */
-const rawSearch = ref('')            // те, що друкує користувач
-const search = ref('')               // дебаунс-версія
+const rawSearch = ref('')
+const search = ref('')
 
 watch(rawSearch, (v) => {
   const val = String(v ?? '')
   clearTimeout((watch as any)._t)
   ;(watch as any)._t = setTimeout(() => (search.value = val), 180)
 })
-
 watch(search, () => { tablePage.value = 1 })
 
 /* ---------------- HELPERS ---------------- */
@@ -78,11 +70,6 @@ function formatDate(val: any) {
   const d = new Date(val)
   return Number.isNaN(d.getTime()) ? String(val) : d.toLocaleDateString('uk-UA')
 }
-function isValid(u: UserRaw) {
-  const end = u?.subscription?.subscriptionEndDate
-  const ts = new Date(end).getTime()
-  return !!end && !Number.isNaN(ts) && ts >= Date.now()
-}
 function enrich(u: UserRaw) {
   const fullName = `${u?.firstName ?? ''} ${u?.lastName ?? ''}`.trim()
   const email = u.email || ''
@@ -91,9 +78,7 @@ function enrich(u: UserRaw) {
   return {
     ...u,
     _fullName: fullName,
-    _statusSort: isValid(u) ? 1 : 0,
     _subscriptionEndSort: normalizeDate(u?.subscription?.subscriptionEndDate),
-    _createdAtSort: normalizeDate(u?.dateCreated),
     _email: email,
     _phone: phone,
     _comments: comments,
@@ -103,30 +88,35 @@ function enrich(u: UserRaw) {
 
 /* ---------------- HEADERS ---------------- */
 const headers = [
-  { title: 'ID',             key: 'id',               sortable: true,  width: 70 },
-  { title: 'Статус',         key: '_statusSort',      sortable: true,  width: 130 },
+  { title: 'ID',             key: 'id',               sortable: false,  width: 70 },
+  { title: 'Статус',         key: '_statusSort',      sortable: false, width: 130 },
   { title: 'Дійсний до',     key: '_subscriptionEndSort', sortable: true, width: 170 },
   { title: 'ПІБ',            key: '_fullName',        sortable: true },
   { title: 'Контакти',       key: 'contacts',         sortable: false, width: 240 },
   { title: 'Коментар',       key: '_comments',        sortable: false },
-  { title: 'Дата створення', key: '_createdAtSort',   sortable: true,  width: 160 },
+  { title: 'Дата створення', key: '_createdAtSort',   sortable: false,  width: 160 },
   { title: '', key: 'actions',   sortable: false,  width: 160 },
 ]
 
 /* ---------------- FETCH ---------------- */
-const totalCount = ref(0)
+const clinicFilter = ref<'nonClinic' | 'clinic' | 'all'>('nonClinic')
+watch(clinicFilter, () => { initialLoad() })
+
 async function fetchPage(pageSize: number, token: PageToken, direction: 'asc'|'desc') {
   const res = await axios.post(CF_ENDPOINT, {
     pageSize,
     pageToken: token,
     direction,
-    // поля можна змінити під свої потреби
-    fields: ['firstName','lastName','email','phoneNumber','dateCreated','subscription','comments','isClinic']
+    clinicFilter: clinicFilter.value,
+    fields: [
+      'firstName','lastName','email','phoneNumber',
+      'dateCreated','subscription','comments','isClinic',
+      '_isActive','_isInactive'
+    ]
   })
   const data = Array.isArray(res.data?.data) ? res.data.data : []
   const nextToken: PageToken = res.data?.nextPageToken ?? null
-  const count = res.data?.totalCount ?? 0
-  return { data, nextToken, count }
+  return { data, nextToken }
 }
 
 async function initialLoad() {
@@ -138,10 +128,9 @@ async function initialLoad() {
   tablePage.value = 1
 
   try {
-    const { data, nextToken, count } = await fetchPage(FIRST_PAGE_SIZE, null, currentDirection)
+    const { data, nextToken } = await fetchPage(FIRST_PAGE_SIZE, null, currentDirection)
     users.value = data.map(enrich)
     nextPageToken = nextToken
-    totalCount.value = count // 🔹 зберігаємо загальну кількість
   } catch (e: any) {
     console.error(e)
     errorMsg.value = 'Помилка завантаження користувачів'
@@ -152,8 +141,6 @@ async function initialLoad() {
 
 async function loadMoreIfNeeded() {
   if (!nextPageToken || loadingMore.value) return
-
-  // якщо користувач дійшов до кінця завантажених сторінок — тягнемо наступну порцію
   const totalLoaded = users.value.length
   const currentEndIndex = tablePage.value * tableItemsPerPage.value
   const pagesLeft = Math.ceil((totalLoaded - currentEndIndex) / tableItemsPerPage.value)
@@ -161,10 +148,9 @@ async function loadMoreIfNeeded() {
   if (pagesLeft <= PREFETCH_THRESHOLD) {
     loadingMore.value = true
     try {
-      const { data, nextToken, count } = await fetchPage(NEXT_PAGE_SIZE, nextPageToken, currentDirection)
+      const { data, nextToken } = await fetchPage(NEXT_PAGE_SIZE, nextPageToken, currentDirection)
       users.value = users.value.concat(data.map(enrich))
       nextPageToken = nextToken
-      totalCount.value = count // 🔹 оновлюємо кількість, щоб завжди була актуальна
     } catch (e) {
       console.error(e)
     } finally {
@@ -173,10 +159,7 @@ async function loadMoreIfNeeded() {
   }
 }
 
-/* підвантажувати, коли змінюється сторінка або розмір сторінки */
-watch([tablePage, tableItemsPerPage], () => {
-  loadMoreIfNeeded()
-})
+watch([tablePage, tableItemsPerPage], () => { loadMoreIfNeeded() })
 
 /* ---------------- SEARCH & ROWS ---------------- */
 const rowsFiltered = computed(() => {
@@ -186,12 +169,10 @@ const rowsFiltered = computed(() => {
 })
 function goToUser(event: any) {
   const user = event.item
-  if (user?.id) {
-    router.push(`/user/${user.id}`)
-  }
+  if (user?.id) router.push(`/user/${user.id}`)
 }
 
-/* ---------------- COPY TO CLIPBOARD ---------------- */
+/* ---------------- COPY ---------------- */
 const copySnackbar = ref(false)
 const copyText = ref('')
 async function copy(value: string) {
@@ -200,7 +181,6 @@ async function copy(value: string) {
     copyText.value = 'Скопійовано'
     copySnackbar.value = true
   } catch {
-    // fallback
     const ta = document.createElement('textarea')
     ta.value = value
     document.body.appendChild(ta)
@@ -212,10 +192,7 @@ async function copy(value: string) {
   }
 }
 
-/* ---------------- SORT HANDLER (за бажанням) ----------------
-   Якщо користувач змінює напрямок сорту — перезавантажити з сервера з новим direction.
-   За замовчуванням ми показуємо 'desc' (новіші зверху).
-*/
+/* ---------------- SORT ---------------- */
 const sortBy = ref([{ key: '_createdAtSort', order: 'desc' }])
 watch(sortBy, async (arr) => {
   const s = arr?.[0]
@@ -223,43 +200,35 @@ watch(sortBy, async (arr) => {
   const dir = s.order === 'asc' ? 'asc' : 'desc'
   if (dir !== currentDirection) {
     currentDirection = dir
-    await initialLoad() // перезавантажуємо першу порцію у новому напрямку
+    await initialLoad()
   }
 })
-
-// Метрики
-const totalUsers = computed(() => users.value.length)
-
-const activeUsers = computed(() =>
-  users.value.filter(u => isValid(u)).length
-)
-
-const inactiveUsers = computed(() =>
-  users.value.filter(u => !isValid(u)).length
-)
-
-const clinics = computed(() =>
-  users.value.filter(u => u.isClinic).length
-)
-
-
 
 onMounted(initialLoad)
 </script>
 
 <template>
-
-
   <VRow>
     <VCol cols="12">
-      <!-- Статистика -->
       <UserStats />
     </VCol>
+
     <VCol cols="12">
       <VCard>
         <VCardTitle class="d-flex align-center justify-space-between">
           <span class="text-h6">Користувачі</span>
           <div class="d-flex align-center gap-x-3">
+            <VSelect
+              v-model="clinicFilter"
+              :items="[
+                { title: 'Користувачі без клінік', value: 'nonClinic' },
+                { title: 'Клініки', value: 'clinic' },
+                { title: 'Всі', value: 'all' }
+              ]"
+              hide-details
+              density="comfortable"
+              style="min-width: 300px"
+            />
             <VTextField
               v-model="rawSearch"
               density="comfortable"
@@ -301,11 +270,17 @@ onMounted(initialLoad)
               height="600"
               v-model:page="tablePage"
               v-model:items-per-page="tableItemsPerPage"
-              :items-length="totalCount"
+              :items-length="rowsFiltered.length"
               @click:row="goToUser"
               v-model:sort-by="sortBy"
-
+              :items-per-page-options="[5, 10, 20, 50, -1]"
+              items-per-page-text="Рядків на сторінці"
             >
+              <!-- 🟢 Текст пагінації -->
+              <template #footer.page-text="{ pageStart, pageStop, itemsLength }">
+                {{ pageStart }}–{{ pageStop }} з {{ itemsLength }}
+              </template>
+
               <!-- ID -->
               <template #item.id="{ item }">
                 <VTooltip text="Натисніть щоб скопіювати">
@@ -316,7 +291,7 @@ onMounted(initialLoad)
                       variant="text"
                       rounded
                       color="primary"
-                      @click="copy(item.id)"
+                      @click.stop="copy(item.id)"
                     />
                   </template>
                 </VTooltip>
@@ -324,8 +299,8 @@ onMounted(initialLoad)
 
               <!-- Статус -->
               <template #item._statusSort="{ item }">
-                <VChip size="small" :color="item._statusSort ? 'success' : 'error'">
-                  {{ item._statusSort ? 'Активний' : 'Не активний' }}
+                <VChip size="small" :color="item._isActive ? 'success' : 'error'">
+                  {{ item._isActive ? 'Активний' : 'Неактивний' }}
                 </VChip>
               </template>
 
@@ -339,20 +314,19 @@ onMounted(initialLoad)
                 {{ item._fullName || '—' }}
               </template>
 
-              <!-- Контакти (копіювання) -->
+              <!-- Контакти -->
               <template #item.contacts="{ item }">
                 <div class="d-flex flex-column">
                   <VTooltip text="Натисніть щоб скопіювати" location="top">
                     <template #activator="{ props }">
-                      <button v-bind="props" v-if="item._email" class="linklike" type="button" @click="copy(item._email)">
+                      <button v-bind="props" v-if="item._email" class="linklike" type="button" @click.stop="copy(item._email)">
                         {{ item._email }}
                       </button>
                     </template>
                   </VTooltip>
-
                   <VTooltip text="Натисніть щоб скопіювати" location="top">
                     <template #activator="{ props }">
-                      <button v-bind="props" v-if="item._phone" class="linklike" type="button" @click="copy(item._phone)">
+                      <button v-bind="props" v-if="item._phone" class="linklike" type="button" @click.stop="copy(item._phone)">
                         {{ item._phone }}
                       </button>
                     </template>
@@ -368,24 +342,19 @@ onMounted(initialLoad)
               <!-- Дата створення -->
               <template #item._createdAtSort="{ item }">
                 {{ formatDate(item.dateCreated) }}
-
               </template>
 
               <!-- Дії -->
               <template #item.actions="{ item }">
-
                 <VBtn
                   size="small"
                   icon
                   rounded
-                   color="primary"
+                  color="primary"
                   variant="tonal"
-                  @click="router.push(`/user/${item.id}`)"
+                  @click.stop="router.push(`/user/${item.id}`)"
                 >
-                  <VIcon
-                    icon="tabler-edit"
-                    size="20"
-                  />
+                  <VIcon icon="tabler-edit" size="20" />
                 </VBtn>
               </template>
 
