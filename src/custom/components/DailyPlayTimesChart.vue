@@ -153,10 +153,10 @@ const chartData = computed(() => {
 
   for (let day = 1; day <= days; day++) {
     const d = new Date(Date.UTC(y, m, day))
-    labels.push(labelDayUk(d))              // dd.MM
+    labels.push(labelDayUk(d))
     const key = dateKeyUTC(d)
     const used = Number(timesMap.value?.[key] ?? 0)
-    data.push(Math.round(used))             // ⬅️ округлення до цілого
+    data.push(Math.round(used))
   }
   return {
     labels,
@@ -165,7 +165,11 @@ const chartData = computed(() => {
       data,
       tension: 0.3,
       pointRadius: 3,
-      pointHoverRadius: 5
+      pointHoverRadius: 5,
+      borderColor: '#7367f0b3',        // колір лінії
+      backgroundColor: '#7367f0b3',     // колір точок
+      pointBackgroundColor: '#7367f0b3',
+      pointBorderColor: '#7367f0b3'
     }]
   }
 })

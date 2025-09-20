@@ -184,17 +184,32 @@ async function toggleClinic(e: Event) {
 }
 
 function formatDateTime(v: any) {
-  const d = new Date(v)
+  if (!v) return '—'
+  const s = String(v).trim()
+
+  // 🔹 Якщо dd-MM-yyyy
+  const m = /^(\d{2})[-/.](\d{2})[-/.](\d{4})$/.exec(s)
+  if (m) {
+    const [_, dd, MM, yyyy] = m
+    const d = new Date(Number(yyyy), Number(MM) - 1, Number(dd))
+    return d.toLocaleDateString('uk-UA', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
+  }
+
+  // 🔹 Якщо ISO чи timestamp
+  const d = new Date(s)
   if (isNaN(d.getTime())) return '—'
+
   return d.toLocaleDateString('uk-UA', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-  }) + ' ' + d.toLocaleTimeString('uk-UA', {
-    hour: '2-digit',
-    minute: '2-digit',
   })
 }
+
 
 // --------- MODAL EDIT ----------
 const editDialog = ref(false)
@@ -392,7 +407,7 @@ function clearDeviceId() {
           <template v-else>
             <VRow>
               <!-- Ліва картка -->
-              <VCol cols="12" md="6">
+              <VCol cols="12" md="5">
                 <VCard variant="tonal" class="pa-4">
                   <div class="d-flex flex-column align-center text-center">
                     <div class="w-100 position-relative mb-8">
@@ -457,7 +472,7 @@ function clearDeviceId() {
               </VCol>
 
               <!-- Права: графік -->
-              <VCol cols="12" md="6">
+              <VCol cols="12" md="7">
                 <VCard class="pa-4">
                   <div class="text-subtitle-1 mb-3">Щоденна активність (хв)</div>
                   <DailyPlayTimesChart

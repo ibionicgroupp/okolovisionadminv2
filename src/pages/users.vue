@@ -9,6 +9,7 @@ const router = useRouter()
 
 /* ---------------- CONFIG ---------------- */
 const CF_ENDPOINT = "https://adminlistuserslitev2-956914206562.europe-west1.run.app"
+const SEARCH_ENDPOINT = "https://adminuserssearch-956914206562.europe-west1.run.app"
 const FIRST_PAGE_SIZE = 200
 const NEXT_PAGE_SIZE  = 400
 const TABLE_PAGE_SIZE = 10
@@ -23,7 +24,7 @@ type UserRaw = {
   phoneNumber?: string
   comments?: string
   dateCreated?: any
-  subscription?: { subscriptionEndDate?: any, subscriptionEndMs?: number, isActive?: boolean }
+  subscription?: { subscriptionEndDate?: any, isActive?: boolean }
   isClinic?: boolean
   _isActive?: boolean
   _isInactive?: boolean
@@ -31,8 +32,10 @@ type UserRaw = {
   _fullName?: string
   _email?: string
   _phone?: string
-  _comments?: string
+  // _comments?: string
+  _additionalPromoCode?: string
   _searchBlob?: string
+  _createdAtSort?: number
   [k: string]: any
 }
 type PageToken = null | { dateCreated: any, id: string }
@@ -51,7 +54,6 @@ const tableItemsPerPage = ref(TABLE_PAGE_SIZE)
 /* --- пошук із дебаунсом --- */
 const rawSearch = ref('')
 const search = ref('')
-
 watch(rawSearch, (v) => {
   const val = String(v ?? '')
   clearTimeout((watch as any)._t)
@@ -67,39 +69,87 @@ function normalizeDate(val: any) {
 }
 function formatDate(val: any) {
   if (!val) return '—'
+
+  // якщо формат dd-MM-yyyy
+  const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(String(val))
+  if (m) {
+    const [_, dd, MM, yyyy] = m
+    const d = new Date(Number(yyyy), Number(MM) - 1, Number(dd))
+    return d.toLocaleDateString('uk-UA', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
+  }
+
+  // інакше пробуємо як ISO
   const d = new Date(val)
-  return Number.isNaN(d.getTime()) ? String(val) : d.toLocaleDateString('uk-UA')
+  if (Number.isNaN(d.getTime())) return String(val)
+
+  return d.toLocaleDateString('uk-UA', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
 }
+
+
+function goToUser(event: any) {
+  const user = event.item
+  if (user?.id) {
+    window.open(`/user/${user.id}`, '_blank') // відкриває в новій вкладці
+  }
+}
+function onRowClick(_: MouseEvent, row: any) {
+  // на різних білдах Vuetify id може лежати в різних місцях
+  const id =
+    row?.item?.raw?.id ??
+    row?.item?.id ??
+    row?.internalItem?.value?.id ??
+    row?.id
+
+  if (id) window.open(`/user/${id}`, '_blank')
+}
+
+// щоб видно було, що рядок клікабельний
+function rowProps() {
+  return { class: 'row-clickable', style: 'cursor:pointer' }
+}
+
+
 function enrich(u: UserRaw) {
   const fullName = `${u?.firstName ?? ''} ${u?.lastName ?? ''}`.trim()
   const email = u.email || ''
   const phone = u.phoneNumber ? String(u.phoneNumber) : ''
-  const comments = u.comments || '—'
+  // const comments = u.comments || '—'
+  const additionalPromoCode = u.additionalPromoCode || '—'
   return {
     ...u,
     _fullName: fullName,
     _subscriptionEndSort: normalizeDate(u?.subscription?.subscriptionEndDate),
+    _createdAtSort: normalizeDate(u?.dateCreated),
     _email: email,
     _phone: phone,
-    _comments: comments,
-    _searchBlob: [u.id, fullName, email, phone, comments].filter(Boolean).join(' ').toLowerCase(),
+    // _comments: comments,
+    _additionalPromoCode: additionalPromoCode,
+    _searchBlob: [u.id, fullName, email, phone, additionalPromoCode].filter(Boolean).join(' ').toLowerCase(),
   }
 }
 
 /* ---------------- HEADERS ---------------- */
 const headers = [
   { title: 'ID',             key: 'id',               sortable: false,  width: 70 },
-  { title: 'Статус',         key: '_statusSort',      sortable: false, width: 130 },
+  { title: 'Статус',         key: '_statusSort',      sortable: true, width: 130 },
   { title: 'Дійсний до',     key: '_subscriptionEndSort', sortable: true, width: 170 },
   { title: 'ПІБ',            key: '_fullName',        sortable: true },
   { title: 'Контакти',       key: 'contacts',         sortable: false, width: 240 },
-  { title: 'Коментар',       key: '_comments',        sortable: false },
-  { title: 'Дата створення', key: '_createdAtSort',   sortable: false,  width: 160 },
-  { title: '', key: 'actions',   sortable: false,  width: 160 },
+  // { title: 'Коментар',       key: '_comments',        sortable: false },
+  { title: 'Промокод на знижку',       key: '_additionalPromoCode',        sortable: false, width: 170  },
+  { title: 'Дата створення', key: '_createdAtSort',   sortable: true,  width: 160 },
 ]
 
 /* ---------------- FETCH ---------------- */
-const clinicFilter = ref<'nonClinic' | 'clinic' | 'all'>('nonClinic')
+const clinicFilter = ref<'nonClinic' | 'clinic' | 'all'>('all')
 watch(clinicFilter, () => { initialLoad() })
 
 async function fetchPage(pageSize: number, token: PageToken, direction: 'asc'|'desc') {
@@ -108,11 +158,6 @@ async function fetchPage(pageSize: number, token: PageToken, direction: 'asc'|'d
     pageToken: token,
     direction,
     clinicFilter: clinicFilter.value,
-    fields: [
-      'firstName','lastName','email','phoneNumber',
-      'dateCreated','subscription','comments','isClinic',
-      '_isActive','_isInactive'
-    ]
   })
   const data = Array.isArray(res.data?.data) ? res.data.data : []
   const nextToken: PageToken = res.data?.nextPageToken ?? null
@@ -161,16 +206,32 @@ async function loadMoreIfNeeded() {
 
 watch([tablePage, tableItemsPerPage], () => { loadMoreIfNeeded() })
 
-/* ---------------- SEARCH & ROWS ---------------- */
-const rowsFiltered = computed(() => {
-  const q = String(search.value ?? '').trim().toLowerCase()
-  if (!q) return users.value
-  return users.value.filter(r => r._searchBlob.includes(q))
-})
-function goToUser(event: any) {
-  const user = event.item
-  if (user?.id) router.push(`/user/${user.id}`)
+/* ---------------- SEARCH ---------------- */
+async function searchRemote(q: string) {
+  if (!q.trim()) {
+    await initialLoad()
+    return
+  }
+  loading.value = true
+  try {
+    const res = await axios.post(SEARCH_ENDPOINT, { q })
+    const data = Array.isArray(res.data?.data) ? res.data.data : []
+    users.value = data.map(enrich)
+    nextPageToken = null
+  } catch (e) {
+    console.error("Search error", e)
+    errorMsg.value = 'Помилка пошуку'
+  } finally {
+    loading.value = false
+  }
 }
+watch(search, async (val) => {
+  if (val.length >= 2) {
+    await searchRemote(val)
+  } else {
+    await initialLoad()
+  }
+})
 
 /* ---------------- COPY ---------------- */
 const copySnackbar = ref(false)
@@ -255,26 +316,21 @@ onMounted(initialLoad)
           </div>
 
           <div v-else>
-            <div v-if="loadingMore" class="d-flex align-center gap-x-2 text-medium-emphasis mb-3">
-              <VProgressCircular indeterminate size="16" width="2" />
-              <span>Догружаємо дані…</span>
-            </div>
-
             <VDataTable
               :headers="headers"
-              :items="rowsFiltered"
+              :items="users"
               item-key="id"
-              class="elevation-1 text-no-wrap"
               hover
               sticky
               height="600"
               v-model:page="tablePage"
               v-model:items-per-page="tableItemsPerPage"
-              :items-length="rowsFiltered.length"
-              @click:row="goToUser"
+              :items-length="users.length"
               v-model:sort-by="sortBy"
               :items-per-page-options="[5, 10, 20, 50, -1]"
               items-per-page-text="Рядків на сторінці"
+              @click:row="onRowClick"
+            :row-props="rowProps"
             >
               <!-- 🟢 Текст пагінації -->
               <template #footer.page-text="{ pageStart, pageStop, itemsLength }">
@@ -283,11 +339,26 @@ onMounted(initialLoad)
 
               <!-- ID -->
               <template #item.id="{ item }">
-                <VTooltip text="Натисніть щоб скопіювати">
+<!--                <VTooltip text="Натисніть щоб скопіювати">-->
+<!--                  <template #activator="{ props }">-->
+<!--                    <VBtn-->
+<!--                      v-bind="props"-->
+<!--                      icon="tabler-id"-->
+<!--                      variant="text"-->
+<!--                      rounded-->
+<!--                      color="primary"-->
+<!--                      @click.stop="copy(item.id)"-->
+<!--                    />-->
+<!--                  </template>-->
+<!--                </VTooltip>-->
+                <VTooltip
+                  v-if="item.isClinic"
+                  text="Клініка"
+                >
                   <template #activator="{ props }">
                     <VBtn
                       v-bind="props"
-                      icon="tabler-id"
+                      icon="tabler-building-hospital"
                       variant="text"
                       rounded
                       color="primary"
@@ -295,6 +366,40 @@ onMounted(initialLoad)
                     />
                   </template>
                 </VTooltip>
+
+                <VTooltip
+                  v-else-if="!item.isClinic && item.clinicId"
+                  text="Користувач клініки"
+                >
+                  <template #activator="{ props }">
+                    <VBtn
+                      v-bind="props"
+                      icon="tabler-user-shield"
+                      variant="text"
+                      rounded
+                      color="secondary"
+                      @click.stop="copy(item.id)"
+                    />
+                  </template>
+                </VTooltip>
+
+                <VTooltip
+                  v-else
+                  text="Користувач"
+                >
+                  <template #activator="{ props }">
+                    <VBtn
+                      v-bind="props"
+                      icon="tabler-user"
+                      variant="text"
+                      rounded
+                      color="success"
+                      @click.stop="copy(item.id)"
+                    />
+                  </template>
+                </VTooltip>
+
+
               </template>
 
               <!-- Статус -->
@@ -304,9 +409,12 @@ onMounted(initialLoad)
                 </VChip>
               </template>
 
+
               <!-- Дійсний до -->
               <template #item._subscriptionEndSort="{ item }">
-                {{ item.subscription?.subscriptionEndDate ? formatDate(item.subscription.subscriptionEndDate) : '—' }}
+                {{ item.subscription?.subscriptionEndDate
+                ? formatDate(item.subscription.subscriptionEndDate)
+                : '—' }}
               </template>
 
               <!-- ПІБ -->
@@ -335,8 +443,8 @@ onMounted(initialLoad)
               </template>
 
               <!-- Коментар -->
-              <template #item._comments="{ item }">
-                {{ item._comments || '—' }}
+              <template #item._additionalPromoCode="{ item }">
+                {{ item._additionalPromoCode || '—' }}
               </template>
 
               <!-- Дата створення -->
@@ -344,19 +452,19 @@ onMounted(initialLoad)
                 {{ formatDate(item.dateCreated) }}
               </template>
 
-              <!-- Дії -->
-              <template #item.actions="{ item }">
-                <VBtn
-                  size="small"
-                  icon
-                  rounded
-                  color="primary"
-                  variant="tonal"
-                  @click.stop="router.push(`/user/${item.id}`)"
-                >
-                  <VIcon icon="tabler-edit" size="20" />
-                </VBtn>
-              </template>
+<!--              &lt;!&ndash; Дії &ndash;&gt;-->
+<!--              <template #item.actions="{ item }">-->
+<!--                <VBtn-->
+<!--                  size="small"-->
+<!--                  icon-->
+<!--                  rounded-->
+<!--                  color="primary"-->
+<!--                  variant="tonal"-->
+<!--                  @click.stop="router.push(`/user/${item.id}`)"-->
+<!--                >-->
+<!--                  <VIcon icon="tabler-edit" size="20" />-->
+<!--                </VBtn>-->
+<!--              </template>-->
 
               <!-- Порожньо -->
               <template #no-data>
