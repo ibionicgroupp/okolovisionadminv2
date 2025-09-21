@@ -9,11 +9,8 @@ const router = useRouter()
 
 /* ---------------- CONFIG ---------------- */
 const CF_ENDPOINT = "https://adminlistuserslitev2-956914206562.europe-west1.run.app"
-const SEARCH_ENDPOINT = "https://adminuserssearch-956914206562.europe-west1.run.app"
-const FIRST_PAGE_SIZE = 200
-const NEXT_PAGE_SIZE  = 400
-const TABLE_PAGE_SIZE = 10
-const PREFETCH_THRESHOLD = 2
+// Пошуковий ендпоінт більше не потрібен — все робимо на фронті
+// const SEARCH_ENDPOINT = "..."
 
 /* ---------------- STATE ---------------- */
 type UserRaw = {
@@ -24,34 +21,29 @@ type UserRaw = {
   phoneNumber?: string
   comments?: string
   dateCreated?: any
-  subscription?: { subscriptionEndDate?: any, isActive?: boolean }
+  subscription?: { subscriptionEndDate?: any }
   isClinic?: boolean
-  _isActive?: boolean
-  _isInactive?: boolean
-  _subscriptionEndSort?: number
+  clinicId?: string
+  _type?: 'clinic' | 'clinicUser' | 'own'
+  _isActive?: boolean | null
+  _statusSort?: number
+  _endMs?: number
+  _createdAtMs?: number
   _fullName?: string
   _email?: string
   _phone?: string
-  // _comments?: string
   _additionalPromoCode?: string
   _searchBlob?: string
-  _createdAtSort?: number
   [k: string]: any
 }
-type PageToken = null | { dateCreated: any, id: string }
 
 const loading = ref(false)
-const loadingMore = ref(false)
 const errorMsg = ref('')
 
-const users = ref<UserRaw[]>([])
-let nextPageToken: PageToken = null
-let currentDirection: 'asc'|'desc' = 'desc'
+const users = ref<UserRaw[]>([])           // ВСІ користувачі (з бекенду, 1 раз)
+const clinicFilter = ref<'nonClinic' | 'clinic' | 'clinicUsers' | 'all'>('all')
 
-const tablePage = ref(1)
-const tableItemsPerPage = ref(TABLE_PAGE_SIZE)
-
-/* --- пошук із дебаунсом --- */
+/* --- локальний пошук із дебаунсом --- */
 const rawSearch = ref('')
 const search = ref('')
 watch(rawSearch, (v) => {
@@ -59,7 +51,6 @@ watch(rawSearch, (v) => {
   clearTimeout((watch as any)._t)
   ;(watch as any)._t = setTimeout(() => (search.value = val), 180)
 })
-watch(search, () => { tablePage.value = 1 })
 
 /* ---------------- HELPERS ---------------- */
 function normalizeDate(val: any) {
@@ -69,113 +60,56 @@ function normalizeDate(val: any) {
 }
 function formatDate(val: any) {
   if (!val) return '—'
-
-  // якщо формат dd-MM-yyyy
   const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(String(val))
   if (m) {
     const [_, dd, MM, yyyy] = m
     const d = new Date(Number(yyyy), Number(MM) - 1, Number(dd))
-    return d.toLocaleDateString('uk-UA', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
+    return d.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' })
   }
-
-  // інакше пробуємо як ISO
   const d = new Date(val)
   if (Number.isNaN(d.getTime())) return String(val)
-
-  return d.toLocaleDateString('uk-UA', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
+  return d.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
-
-
-function goToUser(event: any) {
-  const user = event.item
-  if (user?.id) {
-    window.open(`/user/${user.id}`, '_blank') // відкриває в новій вкладці
-  }
-}
-function onRowClick(_: MouseEvent, row: any) {
-  // на різних білдах Vuetify id може лежати в різних місцях
-  const id =
-    row?.item?.raw?.id ??
-    row?.item?.id ??
-    row?.internalItem?.value?.id ??
-    row?.id
-
-  if (id) window.open(`/user/${id}`, '_blank')
-}
-
-// щоб видно було, що рядок клікабельний
-function rowProps() {
-  return { class: 'row-clickable', style: 'cursor:pointer' }
-}
-
-
 function enrich(u: UserRaw) {
   const fullName = `${u?.firstName ?? ''} ${u?.lastName ?? ''}`.trim()
   const email = u.email || ''
   const phone = u.phoneNumber ? String(u.phoneNumber) : ''
-  // const comments = u.comments || '—'
   const additionalPromoCode = u.additionalPromoCode || '—'
+
   return {
     ...u,
     _fullName: fullName,
-    _subscriptionEndSort: normalizeDate(u?.subscription?.subscriptionEndDate),
-    _createdAtSort: normalizeDate(u?.dateCreated),
     _email: email,
     _phone: phone,
-    // _comments: comments,
     _additionalPromoCode: additionalPromoCode,
-    _searchBlob: [u.id, fullName, email, phone, additionalPromoCode].filter(Boolean).join(' ').toLowerCase(),
+    _createdAtSort: u._createdAtMs ?? normalizeDate(u.dateCreated),
+    _subscriptionEndSort: u._endMs ?? normalizeDate(u?.subscription?.subscriptionEndDate),
+    _searchBlob: [u.id, fullName, email, phone, u.comments, additionalPromoCode]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase(),
   }
 }
 
 /* ---------------- HEADERS ---------------- */
 const headers = [
-  { title: 'ID',             key: 'id',               sortable: false,  width: 70 },
-  { title: 'Статус',         key: '_statusSort',      sortable: true, width: 130 },
+  { title: 'ID',             key: 'id',                 sortable: false, width: 70 },
+  { title: 'Статус',         key: '_statusSort',        sortable: true,  width: 130 },
   { title: 'Дійсний до',     key: '_subscriptionEndSort', sortable: true, width: 170 },
-  { title: 'ПІБ',            key: '_fullName',        sortable: true },
-  { title: 'Контакти',       key: 'contacts',         sortable: false, width: 240 },
-  // { title: 'Коментар',       key: '_comments',        sortable: false },
-  { title: 'Промокод на знижку',       key: '_additionalPromoCode',        sortable: false, width: 170  },
-  { title: 'Дата створення', key: '_createdAtSort',   sortable: true,  width: 160 },
+  { title: 'ПІБ',            key: '_fullName',          sortable: true },
+  { title: 'Контакти',       key: 'contacts',           sortable: false, width: 240 },
+  { title: 'Промокод на знижку', key: '_additionalPromoCode', sortable: false, width: 170 },
+  { title: 'Дата створення', key: '_createdAtSort',     sortable: true,  width: 160 },
 ]
 
-/* ---------------- FETCH ---------------- */
-const clinicFilter = ref<'nonClinic' | 'clinic' | 'all'>('all')
-watch(clinicFilter, () => { initialLoad() })
-
-async function fetchPage(pageSize: number, token: PageToken, direction: 'asc'|'desc') {
-  const res = await axios.post(CF_ENDPOINT, {
-    pageSize,
-    pageToken: token,
-    direction,
-    clinicFilter: clinicFilter.value,
-  })
-  const data = Array.isArray(res.data?.data) ? res.data.data : []
-  const nextToken: PageToken = res.data?.nextPageToken ?? null
-  return { data, nextToken }
-}
-
-async function initialLoad() {
+/* ---------------- FETCH (один раз, без пагінації) ---------------- */
+async function initialLoadAll() {
   loading.value = true
   errorMsg.value = ''
-  users.value = []
-  nextPageToken = null
-  currentDirection = 'desc'
-  tablePage.value = 1
-
   try {
-    const { data, nextToken } = await fetchPage(FIRST_PAGE_SIZE, null, currentDirection)
+    const res = await axios.post(CF_ENDPOINT, {})
+    const data = Array.isArray(res.data?.data) ? res.data.data : []
     users.value = data.map(enrich)
-    nextPageToken = nextToken
   } catch (e: any) {
     console.error(e)
     errorMsg.value = 'Помилка завантаження користувачів'
@@ -183,55 +117,35 @@ async function initialLoad() {
     loading.value = false
   }
 }
+onMounted(initialLoadAll)
 
-async function loadMoreIfNeeded() {
-  if (!nextPageToken || loadingMore.value) return
-  const totalLoaded = users.value.length
-  const currentEndIndex = tablePage.value * tableItemsPerPage.value
-  const pagesLeft = Math.ceil((totalLoaded - currentEndIndex) / tableItemsPerPage.value)
+/* ---------------- CLIENT FILTER + SEARCH ---------------- */
+const viewItems = computed(() => {
+  const q = search.value.trim().toLowerCase()
 
-  if (pagesLeft <= PREFETCH_THRESHOLD) {
-    loadingMore.value = true
-    try {
-      const { data, nextToken } = await fetchPage(NEXT_PAGE_SIZE, nextPageToken, currentDirection)
-      users.value = users.value.concat(data.map(enrich))
-      nextPageToken = nextToken
-    } catch (e) {
-      console.error(e)
-    } finally {
-      loadingMore.value = false
-    }
-  }
-}
-
-watch([tablePage, tableItemsPerPage], () => { loadMoreIfNeeded() })
-
-/* ---------------- SEARCH ---------------- */
-async function searchRemote(q: string) {
-  if (!q.trim()) {
-    await initialLoad()
-    return
-  }
-  loading.value = true
-  try {
-    const res = await axios.post(SEARCH_ENDPOINT, { q })
-    const data = Array.isArray(res.data?.data) ? res.data.data : []
-    users.value = data.map(enrich)
-    nextPageToken = null
-  } catch (e) {
-    console.error("Search error", e)
-    errorMsg.value = 'Помилка пошуку'
-  } finally {
-    loading.value = false
-  }
-}
-watch(search, async (val) => {
-  if (val.length >= 2) {
-    await searchRemote(val)
-  } else {
-    await initialLoad()
-  }
+  return users.value
+    .filter(u => {
+      if (clinicFilter.value === 'all') return true
+      if (clinicFilter.value === 'clinic') return u._type === 'clinic'
+      if (clinicFilter.value === 'clinicUsers') return u._type === 'clinicUser'
+      if (clinicFilter.value === 'nonClinic') return u._type === 'own'
+      return true
+    })
+    .filter(u => (!q ? true : (u._searchBlob || '').includes(q)))
 })
+
+/* ---------------- TABLE ---------------- */
+function onRowClick(_: MouseEvent, row: any) {
+  const id =
+    row?.item?.raw?.id ??
+    row?.item?.id ??
+    row?.internalItem?.value?.id ??
+    row?.id
+  if (id) window.open(`/user/${id}`, '_blank')
+}
+function rowProps() {
+  return { class: 'row-clickable', style: 'cursor:pointer' }
+}
 
 /* ---------------- COPY ---------------- */
 const copySnackbar = ref(false)
@@ -239,8 +153,6 @@ const copyText = ref('')
 async function copy(value: string) {
   try {
     await navigator.clipboard.writeText(value)
-    copyText.value = 'Скопійовано'
-    copySnackbar.value = true
   } catch {
     const ta = document.createElement('textarea')
     ta.value = value
@@ -248,24 +160,15 @@ async function copy(value: string) {
     ta.select()
     try { document.execCommand('copy') } catch {}
     document.body.removeChild(ta)
+  } finally {
     copyText.value = 'Скопійовано'
     copySnackbar.value = true
   }
 }
 
 /* ---------------- SORT ---------------- */
+// локальне сортування працює з _createdAtSort / _subscriptionEndSort / _statusSort
 const sortBy = ref([{ key: '_createdAtSort', order: 'desc' }])
-watch(sortBy, async (arr) => {
-  const s = arr?.[0]
-  if (!s) return
-  const dir = s.order === 'asc' ? 'asc' : 'desc'
-  if (dir !== currentDirection) {
-    currentDirection = dir
-    await initialLoad()
-  }
-})
-
-onMounted(initialLoad)
 </script>
 
 <template>
@@ -284,6 +187,7 @@ onMounted(initialLoad)
               :items="[
                 { title: 'Користувачі без клінік', value: 'nonClinic' },
                 { title: 'Клініки', value: 'clinic' },
+                { title: 'Користувачі клінік', value: 'clinicUsers' },
                 { title: 'Всі', value: 'all' }
               ]"
               hide-details
@@ -293,7 +197,7 @@ onMounted(initialLoad)
             <VTextField
               v-model="rawSearch"
               density="comfortable"
-              placeholder="Пошук (ID / ПІБ / email / телефон / коментар)"
+              placeholder="Пошук (ID / ПІБ / email / телефон / коментар / промокод)"
               style="min-width: 360px"
               clearable
               hide-details
@@ -318,158 +222,121 @@ onMounted(initialLoad)
           <div v-else>
             <VDataTable
               :headers="headers"
-              :items="users"
+              :items="viewItems"
               item-key="id"
               hover
               sticky
               height="600"
-              v-model:page="tablePage"
-              v-model:items-per-page="tableItemsPerPage"
-              :items-length="users.length"
-              v-model:sort-by="sortBy"
-              :items-per-page-options="[5, 10, 20, 50, -1]"
-              items-per-page-text="Рядків на сторінці"
-              @click:row="onRowClick"
+              :items-per-page="-1"
+            v-model:sort-by="sortBy"
+            @click:row="onRowClick"
             :row-props="rowProps"
             >
-              <!-- 🟢 Текст пагінації -->
-              <template #footer.page-text="{ pageStart, pageStop, itemsLength }">
-                {{ pageStart }}–{{ pageStop }} з {{ itemsLength }}
+
+            <template #footer.page-text="{ itemsLength }">
+              Всього: {{ itemsLength }}
+            </template>
+
+
+            <template #item.id="{ item }">
+              <VTooltip v-if="item._type === 'clinic'" text="Клініка">
+                <template #activator="{ props }">
+                  <VBtn
+                    v-bind="props"
+                    icon="tabler-building-hospital"
+                    variant="text"
+                    rounded
+                    color="primary"
+                    @click.stop="copy(item.id)"
+                  />
+                </template>
+              </VTooltip>
+
+              <VTooltip v-else-if="item._type === 'clinicUser'" text="Користувач клініки">
+                <template #activator="{ props }">
+                  <VBtn
+                    v-bind="props"
+                    icon="tabler-user-shield"
+                    variant="text"
+                    rounded
+                    color="secondary"
+                    @click.stop="copy(item.id)"
+                  />
+                </template>
+              </VTooltip>
+
+              <VTooltip v-else text="Користувач">
+                <template #activator="{ props }">
+                  <VBtn
+                    v-bind="props"
+                    icon="tabler-user"
+                    variant="text"
+                    rounded
+                    color="success"
+                    @click.stop="copy(item.id)"
+                  />
+                </template>
+              </VTooltip>
+            </template>
+
+            <!-- Статус -->
+            <template #item._statusSort="{ item }">
+              <template v-if="item._type === 'clinicUser'">
+                — <!-- для користувачів клінік статус не показуємо -->
               </template>
-
-              <!-- ID -->
-              <template #item.id="{ item }">
-<!--                <VTooltip text="Натисніть щоб скопіювати">-->
-<!--                  <template #activator="{ props }">-->
-<!--                    <VBtn-->
-<!--                      v-bind="props"-->
-<!--                      icon="tabler-id"-->
-<!--                      variant="text"-->
-<!--                      rounded-->
-<!--                      color="primary"-->
-<!--                      @click.stop="copy(item.id)"-->
-<!--                    />-->
-<!--                  </template>-->
-<!--                </VTooltip>-->
-                <VTooltip
-                  v-if="item.isClinic"
-                  text="Клініка"
-                >
-                  <template #activator="{ props }">
-                    <VBtn
-                      v-bind="props"
-                      icon="tabler-building-hospital"
-                      variant="text"
-                      rounded
-                      color="primary"
-                      @click.stop="copy(item.id)"
-                    />
-                  </template>
-                </VTooltip>
-
-                <VTooltip
-                  v-else-if="!item.isClinic && item.clinicId"
-                  text="Користувач клініки"
-                >
-                  <template #activator="{ props }">
-                    <VBtn
-                      v-bind="props"
-                      icon="tabler-user-shield"
-                      variant="text"
-                      rounded
-                      color="secondary"
-                      @click.stop="copy(item.id)"
-                    />
-                  </template>
-                </VTooltip>
-
-                <VTooltip
-                  v-else
-                  text="Користувач"
-                >
-                  <template #activator="{ props }">
-                    <VBtn
-                      v-bind="props"
-                      icon="tabler-user"
-                      variant="text"
-                      rounded
-                      color="success"
-                      @click.stop="copy(item.id)"
-                    />
-                  </template>
-                </VTooltip>
-
-
-              </template>
-
-              <!-- Статус -->
-              <template #item._statusSort="{ item }">
+              <template v-else>
                 <VChip size="small" :color="item._isActive ? 'success' : 'error'">
                   {{ item._isActive ? 'Активний' : 'Неактивний' }}
                 </VChip>
               </template>
+            </template>
 
+            <!-- Дійсний до -->
+            <template #item._subscriptionEndSort="{ item }">
+              {{ item.subscription?.subscriptionEndDate
+              ? formatDate(item.subscription.subscriptionEndDate)
+              : '—' }}
+            </template>
 
-              <!-- Дійсний до -->
-              <template #item._subscriptionEndSort="{ item }">
-                {{ item.subscription?.subscriptionEndDate
-                ? formatDate(item.subscription.subscriptionEndDate)
-                : '—' }}
-              </template>
+            <!-- ПІБ -->
+            <template #item._fullName="{ item }">
+              {{ item._fullName || '—' }}
+            </template>
 
-              <!-- ПІБ -->
-              <template #item._fullName="{ item }">
-                {{ item._fullName || '—' }}
-              </template>
+            <!-- Контакти -->
+            <template #item.contacts="{ item }">
+              <div class="d-flex flex-column">
+                <VTooltip text="Натисніть щоб скопіювати" location="top">
+                  <template #activator="{ props }">
+                    <button v-bind="props" v-if="item._email" class="linklike" type="button" @click.stop="copy(item._email)">
+                      {{ item._email }}
+                    </button>
+                  </template>
+                </VTooltip>
+                <VTooltip text="Натисніть щоб скопіювати" location="top">
+                  <template #activator="{ props }">
+                    <button v-bind="props" v-if="item._phone" class="linklike" type="button" @click.stop="copy(item._phone)">
+                      {{ item._phone }}
+                    </button>
+                  </template>
+                </VTooltip>
+              </div>
+            </template>
 
-              <!-- Контакти -->
-              <template #item.contacts="{ item }">
-                <div class="d-flex flex-column">
-                  <VTooltip text="Натисніть щоб скопіювати" location="top">
-                    <template #activator="{ props }">
-                      <button v-bind="props" v-if="item._email" class="linklike" type="button" @click.stop="copy(item._email)">
-                        {{ item._email }}
-                      </button>
-                    </template>
-                  </VTooltip>
-                  <VTooltip text="Натисніть щоб скопіювати" location="top">
-                    <template #activator="{ props }">
-                      <button v-bind="props" v-if="item._phone" class="linklike" type="button" @click.stop="copy(item._phone)">
-                        {{ item._phone }}
-                      </button>
-                    </template>
-                  </VTooltip>
-                </div>
-              </template>
+            <!-- Промокод -->
+            <template #item._additionalPromoCode="{ item }">
+              {{ item._additionalPromoCode || '—' }}
+            </template>
 
-              <!-- Коментар -->
-              <template #item._additionalPromoCode="{ item }">
-                {{ item._additionalPromoCode || '—' }}
-              </template>
+            <!-- Дата створення -->
+            <template #item._createdAtSort="{ item }">
+              {{ formatDate(item.dateCreated) }}
+            </template>
 
-              <!-- Дата створення -->
-              <template #item._createdAtSort="{ item }">
-                {{ formatDate(item.dateCreated) }}
-              </template>
-
-<!--              &lt;!&ndash; Дії &ndash;&gt;-->
-<!--              <template #item.actions="{ item }">-->
-<!--                <VBtn-->
-<!--                  size="small"-->
-<!--                  icon-->
-<!--                  rounded-->
-<!--                  color="primary"-->
-<!--                  variant="tonal"-->
-<!--                  @click.stop="router.push(`/user/${item.id}`)"-->
-<!--                >-->
-<!--                  <VIcon icon="tabler-edit" size="20" />-->
-<!--                </VBtn>-->
-<!--              </template>-->
-
-              <!-- Порожньо -->
-              <template #no-data>
-                <div class="py-6 text-center text-medium-emphasis">Даних немає</div>
-              </template>
+            <!-- Порожньо -->
+            <template #no-data>
+              <div class="py-6 text-center text-medium-emphasis">Даних немає</div>
+            </template>
             </VDataTable>
           </div>
         </VCardText>
@@ -491,5 +358,8 @@ onMounted(initialLoad)
   text-decoration: underline;
   color: rgb(var(--v-theme-primary));
   text-align: left;
+}
+.row-clickable {
+  /* просто стилізація клікабельного рядка */
 }
 </style>
