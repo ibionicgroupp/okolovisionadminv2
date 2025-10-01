@@ -294,6 +294,9 @@ const sortBy = ref([{ key: '_createdAtSort', order: 'desc' }])
             <!-- Дійсний до -->
             <template #item._subscriptionEndSort="{ item }">
               {{ item.subscription?.subscriptionEndDate
+
+
+
               ? formatDate(item.subscription.subscriptionEndDate)
               : '—' }}
             </template>

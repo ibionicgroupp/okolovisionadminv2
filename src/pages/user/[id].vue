@@ -290,6 +290,28 @@ async function saveUser() {
   }
 }
 
+const clinicUsers = ref<any[]>([])
+const loadingClinicUsers = ref(false)
+
+async function fetchClinicUsers(clinicId: string) {
+  loadingClinicUsers.value = true
+  try {
+    const res = await axios.post("https://admingetclinicusersv2-956914206562.europe-west1.run.app", {clinicId})
+    clinicUsers.value = res.data?.users ?? []
+  } catch (e) {
+    console.error("Помилка завантаження користувачів клініки", e)
+  } finally {
+    loadingClinicUsers.value = false
+  }
+}
+
+onMounted(async () => {
+  await fetchUser()
+  if (isClinic(user.value)) {
+    await fetchClinicUsers(user.value.id)
+  }
+})
+
 // інші дії
 function deleteUser() {
 }
@@ -484,34 +506,52 @@ function clearDeviceId() {
               </VCol>
 
               <!-- Промокоди -->
-              <VCol cols="12">
+              <VCol cols="12" md="5">
                 <VCard class="pa-4">
                   <div class="text-subtitle-1 mb-3">Промокоди</div>
                   <!--                  <div class="text-caption text-medium-emphasis mb-2">Список використаних промокодів</div>-->
 
-                  <VTable class="text-no-wrap">
-                    <thead>
-                    <tr>
-                      <th class="py-2 px-3 text-left">Промокод</th>
-                      <th class="py-2 px-3 text-left">Використаний</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr v-for="(promo, idx) in (user?.subscription?.usedPromoCodes || [])" :key="idx">
-                      <td class="py-2 px-3">{{ promo?.promoCode ?? '—' }}</td>
-                      <td class="py-2 px-3">{{ promo?.usedAt ? formatDT(promo.usedAt) : '—' }}</td>
-                    </tr>
-                    <tr v-if="!(user?.subscription?.usedPromoCodes || []).length">
-                      <td colspan="2" class="py-4 text-center text-medium-emphasis">Промокоди не використовувались</td>
-                    </tr>
-                    </tbody>
-                  </VTable>
+                  <div class="overflow-x-auto w-100">
+                    <table class="min-w-full bg-white border rounded shadow text-sm w-100">
+                      <thead>
+                      <tr>
+                        <!--                        <th class="text-left border px-3 py-2">№</th>-->
+                        <th class="text-left border px-3 py-2">Промокод</th>
+                        <th class="text-left border px-3 py-2">Використаний</th>
+                      </tr>
+                      </thead>
+
+                      <tbody>
+                      <tr
+                        v-for="(promo, i) in (user?.subscription?.usedPromoCodes || [])"
+                        :key="i"
+                      >
+                        <!--                        <td class="border px-3 py-2">{{ i + 1 }}</td>-->
+                        <td class="border px-3 py-2">{{ promo?.promoCode ?? '—' }}</td>
+                        <td class="border px-3 py-2">
+                          {{ promo?.usedAt ? formatDT(promo.usedAt) : '—' }}
+                        </td>
+                      </tr>
+
+                      <tr v-if="!(user?.subscription?.usedPromoCodes || []).length">
+                        <td class="border px-3 py-2 text-center text-gray-500" colspan="3">
+                          Промокоди не використовувались
+                        </td>
+                      </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </VCard>
               </VCol>
 
               <!-- Користувачі клініки -->
-              <VCol cols="12" v-if="isClinic(user)">
-                <ClinicUsersTable :clinic-user="user" :users="[]"/>
+              <VCol cols="12" md="7" v-if="isClinic(user)">
+                <VCard class="pa-4">
+                  <div class="text-subtitle-1 mb-3">Користувачі клініки</div>
+                  <ClinicUsersTable :clinic-user="user"
+                                    :users="clinicUsers"
+                                    :loading="loadingClinicUsers"/>
+                </VCard>
               </VCol>
             </VRow>
           </template>
@@ -534,6 +574,7 @@ function clearDeviceId() {
 
           <VRow>
             <VCol
+              v-if="gamesList?.length"
               v-for="game in gamesList"
               :key="game.id"
               cols="12" sm="6" md="4" lg="3"
@@ -586,7 +627,7 @@ function clearDeviceId() {
                   <VTooltip
                     text="Це кількість уроків, урок рахується якщо гравець почав грати гру і зіграв мінімум 4 хв (в нас є панелька де пацієнти клініки і там відображається кількість уроків скільки зіграв пацієнт) ">
                     <template #activator="{ props }">
-                      <div v-bind="props"  style="width: 40%">
+                      <div v-bind="props" style="width: 40%">
                         <div class="text-caption">Уроки</div>
                         <div>{{ game.sessions }}</div>
                       </div>
@@ -626,7 +667,15 @@ function clearDeviceId() {
                 </div>
               </VCard>
             </VCol>
+
+            <VCol
+              v-else class="text-center py-6 text-gray-500"
+              cols="12"
+            >
+              Статистика по іграх відсутня
+            </VCol>
           </VRow>
+
         </VCardText>
       </VCard>
     </VCol>

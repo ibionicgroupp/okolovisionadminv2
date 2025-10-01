@@ -1,10 +1,13 @@
 <template>
   <div>
-    <h3 class="text-lg font-semibold mb-2">Користувачі</h3>
-    <p class="text-sm text-gray-500 mb-1">Список користувачів клініки</p>
+    <!-- ЛОАДЕР -->
+    <div v-if="loading" class="py-8 d-flex justify-center">
+      <VProgressCircular indeterminate size="32" width="3" />
+    </div>
 
-    <div class="overflow-x-auto">
-      <table class="min-w-full bg-white border rounded shadow text-sm">
+    <!-- ТАБЛИЦЯ -->
+    <div v-else class="overflow-x-auto w-100">
+      <table class="min-w-full bg-white border rounded shadow text-sm w-100">
         <thead>
         <tr>
           <th class="border px-3 py-2">№</th>
@@ -55,7 +58,8 @@ const props = defineProps({
   // Або можна передати ids прямо сюди (масив або JSON-рядок/CSV)
   clinicPatientIds: { type: [Array, String], default: null },
   // Масив усіх користувачів системи
-  users: { type: Array, default: () => [] }
+  users: { type: Array, default: () => [] },
+  loading: { type: Boolean, default: false }
 })
 
 /* --------- нормалізація списку ID --------- */

@@ -3,11 +3,13 @@ import {ref, computed, onMounted, watch} from 'vue'
 import axios from 'axios'
 
 const CF_ENDPOINT_GET = 'https://us-central1-okolovision-48840.cloudfunctions.net/promocodeGetAll'
-const CF_ENDPOINT_ADD = 'https://us-central1-okolovision-48840.cloudfunctions.net/promocodeAdd'
+// const CF_ENDPOINT_ADD = 'https://us-central1-okolovision-48840.cloudfunctions.net/promocodeAdd'
+const CF_ENDPOINT_PROMOCODE_ADD = 'https://adminpromocodewithbarcodeaddv2-956914206562.europe-west1.run.app'
 
 type Promo = {
   id: string
   code: string
+  barcode?: string | null
   isActivated?: boolean
   dateCreated?: string | number | null
   dateUsed?: string | number | null
@@ -51,11 +53,14 @@ const newMonths = ref<number>(1)     // 🔹 за замовчуванням 1 �
 
 watch(newCodes, (val) => {
   if (!val) return
+  // робимо uppercase + trim у кожному рядку, але залишаємо перенос рядків і таби
   newCodes.value = val
-    .toUpperCase()
-    .replace(/\s+/g, ' ')
-    .trim()
+    .split(/\r?\n/)                           // ділимо по рядках
+    .map(line => line.toUpperCase().trim())   // кожен рядок чистимо
+    .filter(Boolean)                          // прибираємо пусті
+    .join('\n')                               // збираємо назад з переносами
 })
+
 
 function formatDate(val: any) {
   if (!val) return '—'
@@ -88,6 +93,7 @@ async function copy(text: string) {
 const headers = [
   {title: 'Статус', key: '_statusSort', sortable: true, width: 130},
   {title: 'Код', key: 'code', sortable: true},
+  {title: 'Штрихкод', key: 'barcode', sortable: true, width: 160}, // ✅ нове
   {title: 'Дата створення', key: 'dateCreated', sortable: true, width: 160},
   {title: 'Використаний', key: 'dateUsed', sortable: true, width: 160},
   {title: 'ID користувача', key: 'usedByUserId', sortable: true, width: 220},
@@ -95,13 +101,15 @@ const headers = [
   {title: 'Хв/день', key: 'dailyPlayTimeMinutes', sortable: true, width: 120},
 ]
 
+// пошук
 const rowsFiltered = computed(() => {
   const q = String(search.value ?? '').trim().toLowerCase()
   if (!q) return promos.value
   return promos.value.filter(
     p =>
       String(p.code ?? '').toLowerCase().includes(q) ||
-      String(p.usedByUserId ?? '').toLowerCase().includes(q)
+      String(p.usedByUserId ?? '').toLowerCase().includes(q) ||
+      String(p.barcode ?? '').toLowerCase().includes(q)        // ✅ пошук по штрихкоду
   )
 })
 
@@ -145,29 +153,33 @@ async function addPromos() {
       return
     }
 
-    // 🔹 нормалізація + розбивка по пробілу
-    const codes = newCodes.value
-      .split(/\s+/)
-      .map(c => c.toUpperCase().trim())
+
+    const lines = newCodes.value
+      .split(/\r?\n/) // рядки
+      .map(l => l.trim())
       .filter(Boolean)
 
-    if (!codes.length) {
-      showSnackbar("Невірний формат промокодів", "error")
+    const payload = lines.map(line => {
+      // Excel вставляє таби (\t), іноді пробіли → ділимо по будь-якому пробільному символу
+      const [codeRaw, barcodeRaw] = line.split(/\s+/)
+
+      return {
+        code: (codeRaw || "").toUpperCase(),
+        barcode: barcodeRaw || null,
+        dailyPlayTimeMinutes: Number(newMinutes.value),
+        durationInMonths: Number(newMonths.value),
+      }
+    })
+    // 🔹 перевірка на порожні коди
+    if (payload.some(p => !p.code)) {
+      showSnackbar("Знайдено рядок без коду", "error")
       return
     }
 
-    // 🔹 payload
-    const payload = codes.map(code => ({
-      code,
-      dailyPlayTimeMinutes: newMinutes.value,
-      durationInMonths: newMonths.value,
-    }))
-
-    const res = await axios.post(CF_ENDPOINT_ADD, {data: payload})
+    const res = await axios.post(CF_ENDPOINT_PROMOCODE_ADD, { data: payload })
 
     if (!res.data.success) throw new Error(res.data.message || 'Помилка додавання')
 
-    // 🔹 заміна твого copyText.value = ... на ось це
     const added = res.data.added ?? 0
     const updated = res.data.updated?.length ?? 0
     const skipped = res.data.skipped?.length ?? 0
@@ -177,13 +189,11 @@ async function addPromos() {
     if (updated) msgParts.push(`Оновлено: ${updated}`)
     if (skipped) msgParts.push(`Пропущено: ${skipped}`)
 
-    const message = msgParts.length ? msgParts.join(', ') : 'Без змін'
-    showSnackbar(message, 'success')
+    showSnackbar(msgParts.length ? msgParts.join(', ') : 'Без змін', 'success')
 
-    // 🔹 очистка + закриття
-    newCodes.value = ''
-    newMinutes.value = 60     // дефолт
-    newMonths.value = 1       // дефолт
+    newCodes.value = ""
+    newMinutes.value = 60
+    newMonths.value = 1
     dialog.value = false
 
     await loadPromos?.()
@@ -260,7 +270,7 @@ onMounted(loadPromos)
           <VTextField
             v-model="search"
             density="comfortable"
-            placeholder="Пошук (код або ID користувача)"
+            placeholder="Пошук (промокод, штрихкод, ID)"
             clearable
             prepend-inner-icon="tabler-search"
             style="max-width: 300px"
@@ -320,6 +330,9 @@ onMounted(loadPromos)
                     </button>
                   </template>
                 </VTooltip>
+              </template>
+              <template #item.barcode="{ item }">
+                {{ item.barcode || '—' }}
               </template>
 
               <!-- Дата створення -->
@@ -392,11 +405,10 @@ onMounted(loadPromos)
             <VTextarea
               v-model="newCodes"
               label="Промокоди"
-              placeholder="ABC123 DEF456 GHI789"
+              placeholder="3ZEZ0SIB	01-003535 "
               auto-grow
             />
           </VCol>
-
         </VRow>
 
       </VCardText>
