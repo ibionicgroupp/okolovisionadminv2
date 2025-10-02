@@ -406,7 +406,7 @@ onMounted(loadPromos)
             <VTextarea
               v-model="newCodes"
               label="Промокоди"
-              placeholder="3ZEZ0SIB	01-003535 "
+              placeholder="3AAAAAAA 01-000000"
               auto-grow
             />
           </VCol>
