@@ -107,7 +107,8 @@ async function initialLoadAll() {
   loading.value = true
   errorMsg.value = ''
   try {
-    const res = await axios.post(CF_ENDPOINT, {})
+    const res = await axios.post(CF_ENDPOINT, { clinicFilter: clinicFilter.value })
+
     const data = Array.isArray(res.data?.data) ? res.data.data : []
     users.value = data.map(enrich)
   } catch (e: any) {
@@ -220,6 +221,15 @@ const sortBy = ref([{ key: '_createdAtSort', order: 'desc' }])
           </div>
 
           <div v-else>
+<!--            <VDataTableVirtual-->
+<!--              :headers="headers"-->
+<!--              :items="viewItems"-->
+<!--              item-key="id"-->
+<!--              height="600"-->
+<!--              v-model:sort-by="sortBy"-->
+<!--              @click:row="onRowClick"-->
+<!--              :row-props="rowProps"-->
+<!--            />-->
             <VDataTable
               :headers="headers"
               :items="viewItems"
@@ -227,8 +237,11 @@ const sortBy = ref([{ key: '_createdAtSort', order: 'desc' }])
               hover
               sticky
               height="600"
-              :items-per-page="-1"
-            v-model:sort-by="sortBy"
+              :items-per-page="50"
+              v-model:sort-by="sortBy"
+              show-current-page
+              show-first-last-page
+              items-per-page-text="Кількість на сторінку:"
             @click:row="onRowClick"
             :row-props="rowProps"
             >

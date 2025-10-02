@@ -300,6 +300,7 @@ onMounted(loadPromos)
               class="elevation-1 text-no-wrap"
               hover
               sticky
+              items-per-page-text="Кількість на сторінку:"
               height="600"
               v-model:page="tablePage"
               v-model:items-per-page="tableItemsPerPage"

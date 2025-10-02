@@ -290,6 +290,45 @@ async function saveUser() {
   }
 }
 
+const avg90DaysStrict = computed(() => {
+  if (!user.value) return 0
+  const times = user.value.subscription?.dailyPlayTimes ?? user.value.dailyPlayTimes ?? {}
+
+  const today = new Date()
+  const days = 90
+  let sum = 0
+
+  for (let i = 0; i < days; i++) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    const key = d.toISOString().slice(0, 10) // yyyy-MM-dd
+    sum += Number(times[key] ?? 0)
+  }
+  return Math.round(sum / days)
+})
+
+const avg90DaysNonZero = computed(() => {
+  if (!user.value) return 0
+  const times = user.value.subscription?.dailyPlayTimes ?? user.value.dailyPlayTimes ?? {}
+
+  const today = new Date()
+  const days = 90
+  let sum = 0
+  let count = 0
+
+  for (let i = 0; i < days; i++) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    const key = d.toISOString().slice(0, 10)
+    const val = Number(times[key] ?? 0)
+    if (val > 0) {
+      sum += val
+      count++
+    }
+  }
+  return count > 0 ? Math.round(sum / count) : 0
+})
+
 const clinicUsers = ref<any[]>([])
 const loadingClinicUsers = ref(false)
 
@@ -486,9 +525,52 @@ function clearDeviceId() {
                         {{ formatDateTime(user?.subscription?.subscriptionEndDate) }}
                       </div>
                       <div><strong style="color:red;">Сьогодні:</strong> {{ usedMinutesToday(user) }} хв.</div>
-                      <div><strong>Доступно на день:</strong> {{ user?.subscription?.dailyPlayTimeLimit ?? '—' }} хв.
-                      </div>
+                      <div><strong>Доступно на день:</strong> {{ user?.subscription?.dailyPlayTimeLimit ?? '—' }} хв.</div>
                     </div>
+                    <br>
+                    <div class="mt-2 text-caption text-medium-emphasis d-flex flex-column w-100">
+
+                      <div class="d-flex align-center">
+                        <strong>Середня активність (90 днів, і дні без тренувань):</strong>
+                        <VTooltip
+                          text="Сумуємо всі дні за останні 90 днів (якщо день порожній — беремо 0 хв) і ділимо на 90."
+                          location="top"
+                        >
+                          <template #activator="{ props }">
+                            <VIcon
+                              v-bind="props"
+                              size="18"
+                              color="primary"
+                              class="ms-1"
+                              icon="tabler-info-circle"
+                            />
+                          </template>
+                        </VTooltip>
+                        <span class="ms-2">{{ avg90DaysStrict }} хв.</span>
+                      </div>
+
+                      <div class="d-flex align-center mt-1">
+                        <strong>Середня активність (90 днів, тільки дні з даними):</strong>
+                        <VTooltip
+                          text="Беремо тільки ті дні, де є хвилини. Сумуємо й ділимо на кількість таких днів."
+                          location="top"
+                        >
+                          <template #activator="{ props }">
+                            <VIcon
+                              v-bind="props"
+                              size="18"
+                              color="primary"
+                              class="ms-1"
+                              icon="tabler-info-circle"
+                            />
+                          </template>
+                        </VTooltip>
+                        <span class="ms-2">{{ avg90DaysNonZero }} хв.</span>
+                      </div>
+
+                    </div>
+
+
                   </div>
                 </VCard>
               </VCol>
