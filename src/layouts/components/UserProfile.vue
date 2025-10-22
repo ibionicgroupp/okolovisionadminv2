@@ -1,20 +1,35 @@
 <script setup>
 import avatar1 from '@images/avatars/avatar-1.png'
 import { useRouter } from 'vue-router'
-import { signOut } from 'firebase/auth'
+import { signOut, onAuthStateChanged } from 'firebase/auth'
 import { auth } from '@/plugins/firebase'
+import { ref, onMounted } from 'vue'
 
 const router = useRouter()
+const userEmail = ref('') // 🟢 тут збережемо email користувача
 
+// 🔹 Отримуємо email поточного користувача
+onMounted(() => {
+  const user = auth.currentUser
+  if (user) {
+    userEmail.value = user.email
+  } else {
+    // якщо користувач ще не завантажений (Firebase ще ініціалізується)
+    onAuthStateChanged(auth, (u) => {
+      if (u) userEmail.value = u.email
+    })
+  }
+})
+
+// 🔹 Вихід із системи
 const logout = async () => {
   try {
     await signOut(auth)
-    router.push({ name: 'login' }) // або '/login'
+    router.push({ name: 'login' })
   } catch (error) {
     console.error('Logout error:', error)
   }
 }
-
 </script>
 
 <template>
@@ -41,7 +56,7 @@ const logout = async () => {
         offset="14px"
       >
         <VList>
-          <!-- 👉 User Avatar & Name -->
+          <!-- 👉 User Avatar & Email -->
           <VListItem>
             <template #prepend>
               <VListItemAction start>
@@ -52,87 +67,28 @@ const logout = async () => {
                   offset-y="3"
                   color="success"
                 >
-                  <VAvatar
-                    color="primary"
-                    variant="tonal"
-                  >
+                  <VAvatar color="primary" variant="tonal">
                     <VImg :src="avatar1" />
                   </VAvatar>
                 </VBadge>
               </VListItemAction>
             </template>
 
-<!--            <VListItemTitle class="font-weight-semibold">-->
-<!--              John Doe-->
-<!--            </VListItemTitle>-->
-            <VListItemSubtitle>Admin</VListItemSubtitle>
+            <!-- 🟢 показуємо email -->
+            <VListItemTitle class="font-weight-semibold">
+              {{ userEmail || '...' }}
+            </VListItemTitle>
+
+            <!-- можеш замінити "Admin" на роль -->
+<!--            <VListItemSubtitle>Admin</VListItemSubtitle>-->
           </VListItem>
 
-<!--          <VDivider class="my-2" />-->
-
-<!--          &lt;!&ndash; 👉 Profile &ndash;&gt;-->
-<!--          <VListItem link>-->
-<!--            <template #prepend>-->
-<!--              <VIcon-->
-<!--                class="me-2"-->
-<!--                icon="tabler-user"-->
-<!--                size="22"-->
-<!--              />-->
-<!--            </template>-->
-
-<!--            <VListItemTitle>Profile</VListItemTitle>-->
-<!--          </VListItem>-->
-
-<!--          &lt;!&ndash; 👉 Settings &ndash;&gt;-->
-<!--          <VListItem link>-->
-<!--            <template #prepend>-->
-<!--              <VIcon-->
-<!--                class="me-2"-->
-<!--                icon="tabler-settings"-->
-<!--                size="22"-->
-<!--              />-->
-<!--            </template>-->
-
-<!--            <VListItemTitle>Settings</VListItemTitle>-->
-<!--          </VListItem>-->
-
-<!--          &lt;!&ndash; 👉 Pricing &ndash;&gt;-->
-<!--          <VListItem link>-->
-<!--            <template #prepend>-->
-<!--              <VIcon-->
-<!--                class="me-2"-->
-<!--                icon="tabler-currency-dollar"-->
-<!--                size="22"-->
-<!--              />-->
-<!--            </template>-->
-
-<!--            <VListItemTitle>Pricing</VListItemTitle>-->
-<!--          </VListItem>-->
-
-<!--          &lt;!&ndash; 👉 FAQ &ndash;&gt;-->
-<!--          <VListItem link>-->
-<!--            <template #prepend>-->
-<!--              <VIcon-->
-<!--                class="me-2"-->
-<!--                icon="tabler-help"-->
-<!--                size="22"-->
-<!--              />-->
-<!--            </template>-->
-
-<!--            <VListItemTitle>FAQ</VListItemTitle>-->
-<!--          </VListItem>-->
-
-          <!-- Divider -->
           <VDivider class="my-2" />
 
           <!-- 👉 Logout -->
           <VListItem @click="logout">
             <template #prepend>
-              <VIcon
-                class="me-2"
-                icon="tabler-logout"
-                size="22"
-              />
+              <VIcon class="me-2" icon="tabler-logout" size="22" />
             </template>
             <VListItemTitle>Вихід</VListItemTitle>
           </VListItem>

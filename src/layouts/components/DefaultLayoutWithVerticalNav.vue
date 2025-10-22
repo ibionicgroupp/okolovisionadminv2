@@ -1,6 +1,9 @@
 <script setup>
-import navItems from '@/navigation/vertical'
+import getMenu from '@/navigation/vertical'
+import { ref, onMounted } from 'vue'
 import { themeConfig } from '@themeConfig'
+
+const navItems = ref([])
 
 // Components
 import Footer from '@/layouts/components/Footer.vue'

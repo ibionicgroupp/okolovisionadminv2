@@ -360,6 +360,7 @@
     "watchTriggerable": true,
     "watchWithFilter": true,
     "whenever": true,
-    "useUsers": true
+    "useUsers": true,
+    "useAuthUser": true
   }
 }

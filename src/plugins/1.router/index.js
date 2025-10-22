@@ -3,7 +3,6 @@ import { createRouter, createWebHistory } from 'vue-router/auto'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from '@/plugins/firebase'
 
-// -------- 🔹 обгортка layout'ів --------
 function recursiveLayouts(route) {
     if (route.children) {
         for (let i = 0; i < route.children.length; i++)
@@ -16,20 +15,16 @@ function recursiveLayouts(route) {
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
     scrollBehavior(to) {
-        if (to.hash)
-            return { el: to.hash, behavior: 'smooth', top: 60 }
+        if (to.hash) return { el: to.hash, behavior: 'smooth', top: 60 }
         return { top: 0 }
     },
     extendRoutes: (pages) => [
-        {
-            path: '/',
-            redirect: '/users', // 🔹 домашня сторінка після логіну
-        },
+        // ❌ Прибрали redirect '/' → '/users'
         ...[...pages].map((route) => recursiveLayouts(route)),
     ],
 })
 
-// -------- 🔹 Авторизація --------
+// -------- Авторизація --------
 let authReady = false
 let currentUser = null
 
@@ -40,12 +35,11 @@ onAuthStateChanged(auth, (user) => {
 })
 
 router.beforeEach(async (to) => {
-    // чекаємо, поки Firebase підвантажить користувача з LocalStorage
+    // чекаємо користувача
     if (!authReady) {
         await new Promise((resolve) => {
             const stop = onAuthStateChanged(auth, (user) => {
                 currentUser = user
-                console.log('🔄 Initial auth check:', user ? user.email : 'Not logged in')
                 stop()
                 resolve()
             })
@@ -54,20 +48,27 @@ router.beforeEach(async (to) => {
 
     const isPublic = to.meta?.public === true
     const isAuthed = !!currentUser
+    if (!isAuthed && !isPublic) return { name: 'login' }
 
-    // ❌ приватна сторінка, але користувач не авторизований → на login
-    if (!isPublic && !isAuthed) {
-        console.log('⛔ Redirect to login (not authed)')
-        return { name: 'login' }
+    if (!currentUser) return true
+
+    const token = await currentUser.getIdTokenResult(true)
+    const role = token.claims.role
+    const distributorId = token.claims.distributorId
+
+    console.log("🧭 Role:", role, distributorId)
+
+    // 🔒 Обмеження для distributor
+    if (role === "distributor") {
+        const isOwnPage = to.path === `/distributors/${distributorId}`
+        const isLogout = to.name === 'logout'
+
+        // якщо це не його сторінка і не logout → редіректимо
+        if (!isOwnPage && !isLogout) {
+            return `/distributors/${distributorId}`
+        }
     }
 
-    // ✅ якщо авторизований і зайшов на /login → редірект на /users
-    if (isPublic && isAuthed && (to.name === 'login' || to.path.includes('/login'))) {
-        console.log('➡️ Redirect from login to /users')
-        return { name: 'users' }
-    }
-
-    console.log('✅ Route allowed:', to.fullPath)
     return true
 })
 

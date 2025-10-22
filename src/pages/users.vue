@@ -246,9 +246,7 @@ const sortBy = ref([{ key: '_createdAtSort', order: 'desc' }])
             :row-props="rowProps"
             >
 
-            <template #footer.page-text="{ itemsLength }">
-              Всього: {{ itemsLength }}
-            </template>
+
 
 
             <template #item.id="{ item }">
@@ -348,7 +346,9 @@ const sortBy = ref([{ key: '_createdAtSort', order: 'desc' }])
             <template #item._createdAtSort="{ item }">
               {{ formatDate(item.dateCreated) }}
             </template>
-
+              <template #footer.page-text="{ itemsLength }">
+                Всього: {{ itemsLength }}
+              </template>
             <!-- Порожньо -->
             <template #no-data>
               <div class="py-6 text-center text-medium-emphasis">Даних немає</div>
