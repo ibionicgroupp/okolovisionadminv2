@@ -3,7 +3,13 @@ import getMenu from '@/navigation/vertical'
 import { ref, onMounted } from 'vue'
 import { themeConfig } from '@themeConfig'
 
+
+
 const navItems = ref([])
+
+onMounted(async () => {
+  navItems.value = await getMenu()
+})
 
 // Components
 import Footer from '@/layouts/components/Footer.vue'

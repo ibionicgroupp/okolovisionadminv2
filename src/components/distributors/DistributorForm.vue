@@ -196,7 +196,7 @@ function submit() {
       </VCol>
 
       <VCol cols="12" class="d-flex justify-end">
-        <VBtn color="primary" type="submit">Додати</VBtn>
+        <VBtn color="primary" type="submit">Зберегти</VBtn>
       </VCol>
     </VRow>
   </VForm>

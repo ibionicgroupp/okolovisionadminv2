@@ -9,6 +9,7 @@ import {
   browserSessionPersistence,
 } from '@/plugins/firebase'
 
+
 import { themeConfig } from '@themeConfig'
 import { useGenerateImageVariant } from '@core/composable/useGenerateImageVariant'
 import authV2LoginIllustrationLight from '@images/pages/auth-v2-login-illustration-light.png'
@@ -18,6 +19,8 @@ import authV2LoginIllustrationBorderedDark from '@images/pages/auth-v2-login-ill
 import authV2MaskLight from '@images/pages/misc-mask-light.png'
 import authV2MaskDark from '@images/pages/misc-mask-dark.png'
 import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
+import logo from "@images/logo.png";
+import bglogin from "@images/0038.jpg";
 
 // сторінка публічна
 definePage({
@@ -59,12 +62,23 @@ async function onSubmit() {
       form.value.password
     )
 
-    // 🕒 Обов’язково оновлюємо claims після логіну
-    const token = await cred.user.getIdTokenResult(true)
-    console.log('✅ Logged in as:', token.claims.role)
+    // 🔁 форсуємо оновлення токена
+    await cred.user.getIdToken(true)
 
-    // 🔸 Тепер редіректимо (router.beforeEach перехопить це і поведе далі)
-    router.replace('/')
+    // ⏳ трохи чекаємо (щоб claims оновились)
+    setTimeout(async () => {
+      const token = await cred.user.getIdTokenResult(true)
+      // console.log('✅ Updated role:', token.claims.role)
+
+      // 🔀 редірект залежно від ролі
+      if (token.claims.role === 'admin') {
+        router.replace({ name: 'users' }) // або будь-яка адмінська сторінка
+      } else if (token.claims.role === 'distributor') {
+        router.replace(`/distributors/${token.claims.distributorId}`)
+      } else {
+        router.replace({ name: 'login' })
+      }
+    }, 1000)
 
   } catch (err) {
     console.error(err)
@@ -73,30 +87,38 @@ async function onSubmit() {
     isSubmitting.value = false
   }
 }
+
+
 </script>
 
 <template>
   <a href="javascript:void(0)">
     <div class="auth-logo d-flex align-center gap-x-3">
-      <VNodeRenderer :nodes="themeConfig.app.logo"/>
-      <h1 class="auth-title">{{ themeConfig.app.title }}</h1>
+<!--      <VNodeRenderer :nodes="themeConfig.app.logo"/>-->
+<!--      <h1 class="auth-title">{{ themeConfig.app.title }} ff</h1>-->
+      <img class="auth-illustration    " :src="logo" alt="auth" height="40"/>
+<!--      <img class="auth-illustration    " :src="bglogin" alt="auth" height="40"/>-->
     </div>
   </a>
 
   <VRow no-gutters class="auth-wrapper bg-surface">
     <!-- Left -->
-    <VCol lg="8" class="d-none d-lg-flex align-center justify-center position-relative">
-      <div class="d-flex align-center justify-center w-100 position-relative">
-        <VNodeRenderer :nodes="themeConfig.app.logo" class="d-none"/>
-        <img class="auth-illustration d-none d-lg-block" :src="authThemeImg" alt="auth" height="500"/>
-        <img class="auth-illustration-border d-none d-lg-block" :src="authThemeImgBordered" alt="auth" height="500"/>
-      </div>
-      <img class="auth-footer-mask d-none d-lg-block" :src="authThemeMask" alt="mask" height="130"/>
+    <VCol lg="8" class="d-none d-lg-flex align-center justify-center position-relative" :style="{
+    backgroundImage: `url(${bglogin})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+  }">
+<!--      <div class="d-flex align-center justify-center w-100 position-relative">-->
+<!--        <VNodeRenderer :nodes="themeConfig.app.logo" class="d-none"/>-->
+<!--        <img class="auth-illustration d-none d-lg-block" :src="authThemeImg" alt="auth" height="500"/>-->
+<!--        <img class="auth-illustration-border d-none d-lg-block" :src="authThemeImgBordered" alt="auth" height="500"/>-->
+<!--      </div>-->
+<!--      <img class="auth-footer-mask d-none d-lg-block" :src="authThemeMask" alt="mask" height="130"/>-->
     </VCol>
 
     <!-- Right -->
     <VCol cols="12" lg="4" class="auth-card-v2 d-flex align-center justify-center">
-      <VCard flat :min-width="500" :max-width="500" class="mt-12 mt-sm-0 pa-4">
+      <VCard flat   :max-width="500" class="mt-12 mt-sm-0 pa-4 w-100">
         <VCardText>
           <h5 class="text-h5 mb-1">{{ themeConfig.app.title }} ADMIN</h5>
         </VCardText>

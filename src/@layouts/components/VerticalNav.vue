@@ -2,6 +2,7 @@
 import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
 import { VNodeRenderer } from './VNodeRenderer'
 import { layoutConfig } from '@layouts'
+import logo from '@images/logo.png'
 import {
   VerticalNavGroup,
   VerticalNavLink,
@@ -87,15 +88,22 @@ const hideTitleAndIcon = configStore.isVerticalNavMini(isHovered)
           to="/"
           class="app-logo app-title-wrapper"
         >
-          <VNodeRenderer :nodes="layoutConfig.app.logo" />
+<!--          <VNodeRenderer :nodes="layoutConfig.app.logo" />-->
 
           <Transition name="vertical-nav-app-title">
-            <h1
-              v-show="!hideTitleAndIcon"
-              class="app-logo-title"
-            >
-              {{ layoutConfig.app.title }}
-            </h1>
+            <img class="auth-illustration    " :src="logo" alt="auth" height="40"/>
+
+<!--            <h1-->
+<!--              v-show="!hideTitleAndIcon"-->
+<!--              class="app-logo-title"-->
+<!--            >-->
+<!--              <VAvatar-->
+<!--                :image="logo"-->
+<!--                size="30"-->
+<!--              />-->
+
+<!--              {{ layoutConfig.app.title }} dff-->
+<!--            </h1>-->
           </Transition>
         </RouterLink>
         <!-- 👉 Vertical nav actions -->

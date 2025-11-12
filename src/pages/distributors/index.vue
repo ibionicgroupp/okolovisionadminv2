@@ -104,7 +104,7 @@ async function onRowClick(_e: any, ctx: any) {
   try {
     // ✅ Явно переходимо на сторінку дистриб’ютора
     await router.push({ path: `/distributors/${row.id}` })
-    console.log(`➡️ Перехід до дистриб’ютора: ${row.id}`)
+    // console.log(`➡️ Перехід до дистриб’ютора: ${row.id}`)
   } catch (err) {
     console.error('❌ Помилка переходу до дистриб’ютора:', err)
   }
@@ -164,15 +164,25 @@ onMounted(() => {
         </div>
 
         <div class="d-flex align-center gap-4">
+<!--          <VTextField-->
+<!--            v-model="query"-->
+<!--            density="compact"-->
+<!--            placeholder="Пошук..."-->
+<!--            prepend-inner-icon="tabler-search"-->
+<!--            hide-details-->
+<!--            clearable-->
+<!--            style="min-width: 260px; height: 38px"-->
+<!--          />-->
           <VTextField
             v-model="query"
-            density="compact"
+            density="comfortable"
             placeholder="Пошук..."
-            prepend-inner-icon="tabler-search"
-            hide-details
             clearable
-            style="min-width: 260px"
+            prepend-inner-icon="tabler-search"
+            style="min-width: 260px; max-width: 300px"
+            class="ms-auto"
           />
+
           <VBtn color="primary" prepend-icon="tabler-plus" @click="createDialog = true">
             Додати
           </VBtn>

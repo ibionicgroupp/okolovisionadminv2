@@ -1,5 +1,5 @@
 <script setup>
-import avatar1 from '@images/avatars/avatar-1.png'
+import avatar1 from '@images/avatars/ava.png'
 import { useRouter } from 'vue-router'
 import { signOut, onAuthStateChanged } from 'firebase/auth'
 import { auth } from '@/plugins/firebase'
@@ -10,6 +10,7 @@ const userEmail = ref('') // 🟢 тут збережемо email користу
 
 // 🔹 Отримуємо email поточного користувача
 onMounted(() => {
+  // console.log(auth.currentUser)
   const user = auth.currentUser
   if (user) {
     userEmail.value = user.email

@@ -1,1 +1,29 @@
-// Write your overrides
+.layout-horizontal-nav
+.nav-link:not(.sub-item) a.router-link-active,
+.layout-horizontal-nav
+.nav-group:not(.sub-item).active > .popper-triggerer > .nav-group-label,
+.layout-nav-type-vertical
+.layout-vertical-nav
+.nav-link > .router-link-exact-active {
+
+  background-image: linear-gradient(90deg, #ffb769, #ff8457 30%, #f48aff 65%, #6bdfff) !important;
+  box-shadow: 0 2px 6px rgba(255, 132, 87, 0.3); /* трохи адаптував колір під градієнт */
+}
+:root {
+  --nav-active-gradient: linear-gradient(90deg, #ffb769, #ff8457 30%, #f48aff 65%, #6bdfff);
+  --v-theme-primary: linear-gradient(90deg, #ffb769, #ff8457 30%, #f48aff 65%, #6bdfff) !important;
+}
+
+.bg-primary {
+  --v-theme-overlay-multiplier: var(--v-theme-primary-overlay-multiplier);
+  background-image: linear-gradient(90deg, #ffb769, #ff8457 30%, #f48aff 65%, #6bdfff) !important;
+  color: rgb(var(--v-theme-on-primary)) !important;
+}
+.bg-error {
+  background-image: linear-gradient(90deg, #ff512f, #dd2476) !important;
+  color: #fff !important;
+}
+.bg-secondary {
+  background-image: linear-gradient(90deg, #43cea2, #185a9d) !important;
+  color: #fff !important;
+}

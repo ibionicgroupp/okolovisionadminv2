@@ -13,16 +13,19 @@ function recursiveLayouts(route) {
 }
 
 const router = createRouter({
+
     history: createWebHistory(import.meta.env.BASE_URL),
     scrollBehavior(to) {
         if (to.hash) return { el: to.hash, behavior: 'smooth', top: 60 }
         return { top: 0 }
     },
     extendRoutes: (pages) => [
+
         // ❌ Прибрали redirect '/' → '/users'
         ...[...pages].map((route) => recursiveLayouts(route)),
     ],
 })
+console.log('🔍 All routes:', router.getRoutes().map(r => r.path))
 
 // -------- Авторизація --------
 let authReady = false
@@ -31,7 +34,7 @@ let currentUser = null
 onAuthStateChanged(auth, (user) => {
     currentUser = user
     authReady = true
-    console.log('🔐 Auth state changed:', user ? user.email : 'Not logged in')
+    // console.log('🔐 Auth state changed:', user ? user.email : 'Not logged in')
 })
 
 router.beforeEach(async (to) => {
@@ -56,20 +59,21 @@ router.beforeEach(async (to) => {
     const role = token.claims.role
     const distributorId = token.claims.distributorId
 
-    console.log("🧭 Role:", role, distributorId)
+    // console.log("🧭 Role:", role, distributorId)
 
     // 🔒 Обмеження для distributor
     if (role === "distributor") {
         const isOwnPage = to.path === `/distributors/${distributorId}`
         const isLogout = to.name === 'logout'
 
-        // якщо це не його сторінка і не logout → редіректимо
+        // дозволяємо доступ до /users/... тільки адмінам
         if (!isOwnPage && !isLogout) {
             return `/distributors/${distributorId}`
         }
     }
 
     return true
+
 })
 
 export { router }
