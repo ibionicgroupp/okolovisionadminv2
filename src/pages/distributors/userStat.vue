@@ -105,7 +105,7 @@ async function fetchUser() {
   loading.value = true;
   errorMsg.value = ''
   try {
-    const id = route.params.id as string
+    const id = route.query.id as string
     const res = await axios.post(CF_ENDPOINT, {userId: id})
     user.value = res.data?.data ?? null
   } catch (e: any) {
@@ -159,29 +159,29 @@ onMounted(fetchUser)
 // CF endpoint для оновлення isClinic
 const CF_UPDATE_CLINIC = 'https://us-central1-okolovision-48840.cloudfunctions.net/userUpdateIsClinic'
 
-async function toggleClinic(e: Event) {
-  if (!user.value) return
-
-  const target = e.target as HTMLInputElement
-  const newValue = target.checked
-
-  try {
-    await axios.post(CF_UPDATE_CLINIC, {
-      userId: user.value.id,   // ⚠️ тут перевір чи у тебе поле `id` чи `uid`
-      isClinic: newValue,
-    })
-
-    // локально оновлюємо
-    user.value.isClinic = newValue
-    copyText.value = 'isClinic успішно оновлено'
-    copySnackbar.value = true
-  } catch (err: any) {
-    console.error('Помилка при оновленні isClinic', err)
-    console.error('Помилка при оновленні isClinic', err)
-    copyText.value = 'Помилка при оновленні'
-    copySnackbar.value = true
-  }
-}
+// async function toggleClinic(e: Event) {
+//   if (!user.value) return
+//
+//   const target = e.target as HTMLInputElement
+//   const newValue = target.checked
+//
+//   try {
+//     await axios.post(CF_UPDATE_CLINIC, {
+//       userId: user.value.id,   // ⚠️ тут перевір чи у тебе поле `id` чи `uid`
+//       isClinic: newValue,
+//     })
+//
+//     // локально оновлюємо
+//     user.value.isClinic = newValue
+//     copyText.value = 'isClinic успішно оновлено'
+//     copySnackbar.value = true
+//   } catch (err: any) {
+//     console.error('Помилка при оновленні isClinic', err)
+//     console.error('Помилка при оновленні isClinic', err)
+//     copyText.value = 'Помилка при оновленні'
+//     copySnackbar.value = true
+//   }
+// }
 
 function formatDateTime(v: any) {
   if (!v) return '—'
@@ -227,20 +227,20 @@ const editForm = ref({
 
 const errors = ref<{ firstName?: string; lastName?: string }>({})
 
-function editUser() {
-  if (!user.value) return
-  editForm.value = {
-    firstName: user.value.firstName ?? '',
-    lastName: user.value.lastName ?? '',
-    phoneNumber: user.value.phoneNumber ?? '',
-    email: user.value.email ?? '',
-    gender: user.value.gender ?? '',
-    comments: user.value.comments ?? '',
-    subscriptionEndDate: user.value.subscription?.subscriptionEndDate ?? null,
-    dailyPlayTimeLimit: user.value.subscription?.dailyPlayTimeLimit ?? null,
-  }
-  editDialog.value = true
-}
+// function editUser() {
+//   if (!user.value) return
+//   editForm.value = {
+//     firstName: user.value.firstName ?? '',
+//     lastName: user.value.lastName ?? '',
+//     phoneNumber: user.value.phoneNumber ?? '',
+//     email: user.value.email ?? '',
+//     gender: user.value.gender ?? '',
+//     comments: user.value.comments ?? '',
+//     subscriptionEndDate: user.value.subscription?.subscriptionEndDate ?? null,
+//     dailyPlayTimeLimit: user.value.subscription?.dailyPlayTimeLimit ?? null,
+//   }
+//   editDialog.value = true
+// }
 
 function validateForm() {
   errors.value = {}
@@ -253,42 +253,42 @@ function validateForm() {
   return Object.keys(errors.value).length === 0
 }
 
-async function saveUser() {
-  if (!validateForm()) return
-  if (!user.value) return
-
-  try {
-    const payload = {
-      userId: user.value.id,   // ⚠️ перевір що у тебе саме `id` а не `uid`
-      updatedData: {
-        firstName: editForm.value.firstName,
-        lastName: editForm.value.lastName,
-        phoneNumber: editForm.value.phoneNumber,
-        email: editForm.value.email,
-        gender: editForm.value.gender,
-        comments: editForm.value.comments,
-        subscription: {
-          subscriptionEndDate: editForm.value.subscriptionEndDate,
-          dailyPlayTimeLimit: editForm.value.dailyPlayTimeLimit,
-          isActive: true, // можна підставити значення по логіці
-        },
-      },
-    }
-
-    await axios.post(CF_UPDATE_PROFILE, payload)
-
-    // оновлюємо локальні дані користувача
-    user.value = {...user.value, ...payload.updatedData}
-
-    copyText.value = 'Успішно збережено'
-    copySnackbar.value = true
-    editDialog.value = false
-  } catch (err: any) {
-    console.error('Помилка при оновленні користувача', err)
-    copyText.value = 'Помилка при збереженні'
-    copySnackbar.value = true
-  }
-}
+// async function saveUser() {
+//   if (!validateForm()) return
+//   if (!user.value) return
+//
+//   try {
+//     const payload = {
+//       userId: user.value.id,   // ⚠️ перевір що у тебе саме `id` а не `uid`
+//       updatedData: {
+//         firstName: editForm.value.firstName,
+//         lastName: editForm.value.lastName,
+//         phoneNumber: editForm.value.phoneNumber,
+//         email: editForm.value.email,
+//         gender: editForm.value.gender,
+//         comments: editForm.value.comments,
+//         subscription: {
+//           subscriptionEndDate: editForm.value.subscriptionEndDate,
+//           dailyPlayTimeLimit: editForm.value.dailyPlayTimeLimit,
+//           isActive: true, // можна підставити значення по логіці
+//         },
+//       },
+//     }
+//
+//     await axios.post(CF_UPDATE_PROFILE, payload)
+//
+//     // оновлюємо локальні дані користувача
+//     user.value = {...user.value, ...payload.updatedData}
+//
+//     copyText.value = 'Успішно збережено'
+//     copySnackbar.value = true
+//     editDialog.value = false
+//   } catch (err: any) {
+//     console.error('Помилка при оновленні користувача', err)
+//     copyText.value = 'Помилка при збереженні'
+//     copySnackbar.value = true
+//   }
+// }
 
 const avg90DaysStrict = computed(() => {
   if (!user.value) return 0
@@ -344,16 +344,16 @@ async function fetchClinicUsers(clinicId: string) {
   }
 }
 
-onMounted(async () => {
-  await fetchUser()
-  if (isClinic(user.value)) {
-    await fetchClinicUsers(user.value.id)
-  }
-})
+// onMounted(async () => {
+//   await fetchUser()
+//   if (isClinic(user.value)) {
+//     await fetchClinicUsers(user.value.id)
+//   }
+// })
 
 // інші дії
-function deleteUser() {
-}
+// function deleteUser() {
+// }
 
 function clearDeviceId() {
 }
@@ -362,76 +362,76 @@ function clearDeviceId() {
 
 <template>
   <!-- Модальне вікно -->
-  <VDialog v-model="editDialog" max-width="600">
-    <VCard>
-      <VCardTitle>Редагування користувача</VCardTitle>
-      <VDivider/>
-      <VCardText>
-        <VTextField
-          v-model="editForm.firstName"
-          label="Імʼя"
-          :error-messages="errors.firstName"
-          required
-          class="mb-4"
-        />
-        <VTextField
-          v-model="editForm.lastName"
-          label="Прізвище"
-          :error-messages="errors.lastName"
-          required
-          class="mb-4"
-        />
-        <VTextField
-          v-model="editForm.phoneNumber"
-          label="Телефон"
-          prefix="+38"
-          class="mb-4"
-        />
+<!--  <VDialog v-model="editDialog" max-width="600">-->
+<!--    <VCard>-->
+<!--      <VCardTitle>Редагування користувача</VCardTitle>-->
+<!--      <VDivider/>-->
+<!--      <VCardText>-->
+<!--        <VTextField-->
+<!--          v-model="editForm.firstName"-->
+<!--          label="Імʼя"-->
+<!--          :error-messages="errors.firstName"-->
+<!--          required-->
+<!--          class="mb-4"-->
+<!--        />-->
+<!--        <VTextField-->
+<!--          v-model="editForm.lastName"-->
+<!--          label="Прізвище"-->
+<!--          :error-messages="errors.lastName"-->
+<!--          required-->
+<!--          class="mb-4"-->
+<!--        />-->
+<!--        <VTextField-->
+<!--          v-model="editForm.phoneNumber"-->
+<!--          label="Телефон"-->
+<!--          prefix="+38"-->
+<!--          class="mb-4"-->
+<!--        />-->
 
-        <VTextField
-          v-model="editForm.email"
-          label="Email"
-          type="email"
-          class="mb-4"
-        />
-        <VSelect
-          v-model="editForm.gender"
-          label="Стать"
-          :items="[
-    { title: 'Чоловіча', value: 'Male' },
-    { title: 'Жіноча', value: 'Female' },
-    { title: 'Не вказано', value: 'Not specified' }
-  ]"
-          item-title="title"
-          item-value="value"
-          class="mb-4"
-        />
-        <VTextarea
-          v-model="editForm.comments"
-          label="Коментар"
-          class="mb-4"
-        />
+<!--        <VTextField-->
+<!--          v-model="editForm.email"-->
+<!--          label="Email"-->
+<!--          type="email"-->
+<!--          class="mb-4"-->
+<!--        />-->
+<!--        <VSelect-->
+<!--          v-model="editForm.gender"-->
+<!--          label="Стать"-->
+<!--          :items="[-->
+<!--    { title: 'Чоловіча', value: 'Male' },-->
+<!--    { title: 'Жіноча', value: 'Female' },-->
+<!--    { title: 'Не вказано', value: 'Not specified' }-->
+<!--  ]"-->
+<!--          item-title="title"-->
+<!--          item-value="value"-->
+<!--          class="mb-4"-->
+<!--        />-->
+<!--        <VTextarea-->
+<!--          v-model="editForm.comments"-->
+<!--          label="Коментар"-->
+<!--          class="mb-4"-->
+<!--        />-->
 
-        <VTextField
-          v-model="editForm.dailyPlayTimeLimit"
-          label="Хвилин на день"
-          type="number"
-          class="mb-4"
-        />
-        <VDateInput
-          v-model="editForm.subscriptionEndDate"
-          label="Активний до"
-          class="mb-4"
-        />
-      </VCardText>
-      <VDivider/>
-      <VCardActions class="pt-3">
-        <VBtn size="small" color="error" variant="flat" @click="editDialog=false">Скасувати</VBtn>
-        <VBtn size="small" color="primary" variant="flat" @click="saveUser">Зберегти</VBtn>
+<!--        <VTextField-->
+<!--          v-model="editForm.dailyPlayTimeLimit"-->
+<!--          label="Хвилин на день"-->
+<!--          type="number"-->
+<!--          class="mb-4"-->
+<!--        />-->
+<!--        <VDateInput-->
+<!--          v-model="editForm.subscriptionEndDate"-->
+<!--          label="Активний до"-->
+<!--          class="mb-4"-->
+<!--        />-->
+<!--      </VCardText>-->
+<!--      <VDivider/>-->
+<!--      <VCardActions class="pt-3">-->
+<!--        <VBtn size="small" color="error" variant="flat" @click="editDialog=false">Скасувати</VBtn>-->
+<!--        <VBtn size="small" color="primary" variant="flat" @click="saveUser">Зберегти</VBtn>-->
 
-      </VCardActions>
-    </VCard>
-  </VDialog>
+<!--      </VCardActions>-->
+<!--    </VCard>-->
+<!--  </VDialog>-->
 
   <!-- Snackbar -->
   <VSnackbar v-model="copySnackbar" timeout="1600" location="top" color="success">
@@ -444,15 +444,15 @@ function clearDeviceId() {
       <VCard>
         <VCardTitle class="d-flex align-center justify-space-between">
           <div class="d-flex align-center gap-x-3">
-            <VBtn variant="text" prepend-icon="tabler-arrow-left" @click="router.push('/users')">
+            <VBtn variant="text" prepend-icon="tabler-arrow-left" @click="router.push('/user')">
               Назад
             </VBtn>
             <span class="text-h6">Картка користувача</span>
           </div>
-          <div class="d-flex align-center gap-x-2">
-            <VBtn size="small" color="primary" variant="flat" @click="editUser">Редагувати</VBtn>
-            <VBtn size="small" color="error" variant="flat" @click="deleteUser">Видалити</VBtn>
-          </div>
+<!--          <div class="d-flex align-center gap-x-2">-->
+<!--            <VBtn size="small" color="primary" variant="flat" @click="editUser">Редагувати</VBtn>-->
+<!--            <VBtn size="small" color="error" variant="flat" @click="deleteUser">Видалити</VBtn>-->
+<!--          </div>-->
         </VCardTitle>
         <VDivider/>
 
@@ -508,15 +508,14 @@ function clearDeviceId() {
                       <span :style="{ color: isBinocular(user) ? 'green' : 'red' }">
                         {{ isBinocular(user) ? 'Два ока' : 'Одне око' }}
                       </span>
-                      <label class="text-caption d-inline-flex align-center">
-                        <input
-                          type="checkbox"
-                          class="me-1"
-                          :checked="isClinic(user)"
-                          @change="toggleClinic($event)"
-                        >
-                        Клініка
-                      </label>
+<!--                      <label class="text-caption d-inline-flex align-center">-->
+<!--                        <input-->
+<!--                          type="checkbox"-->
+<!--                          class="me-1"-->
+<!--                          :checked="isClinic(user)"-->
+<!--                        >-->
+<!--                        Клініка-->
+<!--                      </label>-->
                     </div>
 
                     <div class="mt-4 text-caption text-medium-emphasis d-flex justify-space-between w-100">
@@ -588,53 +587,53 @@ function clearDeviceId() {
               </VCol>
 
               <!-- Промокоди -->
-              <VCol cols="12" md="5">
-                <VCard class="pa-4">
-                  <div class="text-subtitle-1 mb-3">Промокоди</div>
-                  <!--                  <div class="text-caption text-medium-emphasis mb-2">Список використаних промокодів</div>-->
+<!--              <VCol cols="12" md="5">-->
+<!--                <VCard class="pa-4">-->
+<!--                  <div class="text-subtitle-1 mb-3">Промокоди</div>-->
+<!--                  &lt;!&ndash;                  <div class="text-caption text-medium-emphasis mb-2">Список використаних промокодів</div>&ndash;&gt;-->
 
-                  <div class="overflow-x-auto w-100">
-                    <table class="min-w-full bg-white border rounded shadow text-sm w-100">
-                      <thead>
-                      <tr>
-                        <!--                        <th class="text-left border px-3 py-2">№</th>-->
-                        <th class="text-left border px-3 py-2">Промокод</th>
-                        <th class="text-left border px-3 py-2">Використаний</th>
-                      </tr>
-                      </thead>
+<!--                  <div class="overflow-x-auto w-100">-->
+<!--                    <table class="min-w-full bg-white border rounded shadow text-sm w-100">-->
+<!--                      <thead>-->
+<!--                      <tr>-->
+<!--                        &lt;!&ndash;                        <th class="text-left border px-3 py-2">№</th>&ndash;&gt;-->
+<!--                        <th class="text-left border px-3 py-2">Промокод</th>-->
+<!--                        <th class="text-left border px-3 py-2">Використаний</th>-->
+<!--                      </tr>-->
+<!--                      </thead>-->
 
-                      <tbody>
-                      <tr
-                        v-for="(promo, i) in (user?.subscription?.usedPromoCodes || [])"
-                        :key="i"
-                      >
-                        <!--                        <td class="border px-3 py-2">{{ i + 1 }}</td>-->
-                        <td class="border px-3 py-2">{{ promo?.promoCode ?? '—' }}</td>
-                        <td class="border px-3 py-2">
-                          {{ promo?.usedAt ? formatDT(promo.usedAt) : '—' }}
-                        </td>
-                      </tr>
+<!--                      <tbody>-->
+<!--                      <tr-->
+<!--                        v-for="(promo, i) in (user?.subscription?.usedPromoCodes || [])"-->
+<!--                        :key="i"-->
+<!--                      >-->
+<!--                        &lt;!&ndash;                        <td class="border px-3 py-2">{{ i + 1 }}</td>&ndash;&gt;-->
+<!--                        <td class="border px-3 py-2">{{ promo?.promoCode ?? '—' }}</td>-->
+<!--                        <td class="border px-3 py-2">-->
+<!--                          {{ promo?.usedAt ? formatDT(promo.usedAt) : '—' }}-->
+<!--                        </td>-->
+<!--                      </tr>-->
 
-                      <tr v-if="!(user?.subscription?.usedPromoCodes || []).length">
-                        <td class="border px-3 py-2 text-center text-gray-500" colspan="3">
-                          Промокоди не використовувались
-                        </td>
-                      </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </VCard>
-              </VCol>
+<!--                      <tr v-if="!(user?.subscription?.usedPromoCodes || []).length">-->
+<!--                        <td class="border px-3 py-2 text-center text-gray-500" colspan="3">-->
+<!--                          Промокоди не використовувались-->
+<!--                        </td>-->
+<!--                      </tr>-->
+<!--                      </tbody>-->
+<!--                    </table>-->
+<!--                  </div>-->
+<!--                </VCard>-->
+<!--              </VCol>-->
 
               <!-- Користувачі клініки -->
-              <VCol cols="12" md="7" v-if="isClinic(user)">
-                <VCard class="pa-4">
-                  <div class="text-subtitle-1 mb-3">Користувачі клініки</div>
-                  <ClinicUsersTable :clinic-user="user"
-                                    :users="clinicUsers"
-                                    :loading="loadingClinicUsers"/>
-                </VCard>
-              </VCol>
+<!--              <VCol cols="12" md="7" v-if="isClinic(user)">-->
+<!--                <VCard class="pa-4">-->
+<!--                  <div class="text-subtitle-1 mb-3">Користувачі клініки</div>-->
+<!--                  <ClinicUsersTable :clinic-user="user"-->
+<!--                                    :users="clinicUsers"-->
+<!--                                    :loading="loadingClinicUsers"/>-->
+<!--                </VCard>-->
+<!--              </VCol>-->
             </VRow>
           </template>
         </VCardText>

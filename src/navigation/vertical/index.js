@@ -25,7 +25,7 @@ export default async function getMenu() {
         return [
             { title: 'Користувачі', to: { name: 'users' }, icon: { icon: 'tabler-file' } },
             { title: 'Промокоди', to: { name: 'promocodes' }, icon: { icon: 'tabler-file' } },
-            { title: 'Дистриб’ютори', to: { name: 'distributors-list' }, icon: { icon: 'tabler-users' } },
+            { title: 'Дистриб’ютори', to: { name: 'distributors-list' }, icon: { icon: 'tabler-user' } },
         ]
     }
 

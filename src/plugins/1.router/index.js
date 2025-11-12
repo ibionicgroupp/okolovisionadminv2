@@ -21,7 +21,7 @@ const router = createRouter({
     },
     extendRoutes: (pages) => [
 
-        // ❌ Прибрали redirect '/' → '/users'
+        // ❌ Прибрали redirect '/' → '/user'
         ...[...pages].map((route) => recursiveLayouts(route)),
     ],
 })
@@ -65,12 +65,13 @@ router.beforeEach(async (to) => {
     if (role === "distributor") {
         const isOwnPage = to.path === `/distributors/${distributorId}`
         const isLogout = to.name === 'logout'
+        const isUserStat = to.path.startsWith('/distributors/userStat')
 
-        // дозволяємо доступ до /users/... тільки адмінам
-        if (!isOwnPage && !isLogout) {
+        if (!isOwnPage && !isLogout && !isUserStat) {
             return `/distributors/${distributorId}`
         }
     }
+
 
     return true
 

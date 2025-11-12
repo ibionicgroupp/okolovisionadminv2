@@ -438,13 +438,16 @@ const activeTab = ref('used') // Активний таб за замовчува
                         <td>{{ new Date(item.dateUsed).toLocaleDateString('uk-UA') }}</td>
                         <td>
                       <span v-if="item.user">
-  <RouterLink
-    :to="`/users/${item.user.id}`"
-    class="text-primary text-decoration-underline"
-    style="cursor: pointer;"
-  >
-    {{ item.user.name || item.user.email || item.user.id }}
-  </RouterLink>
+<RouterLink
+  :to="`/distributors/userStat?id=${item.user.id}`"
+  class="text-primary text-decoration-underline"
+  style="cursor: pointer;"
+>
+  {{ item.user.name || item.user.email || item.user.id }}
+</RouterLink>
+
+
+
 </span>
                           <span v-else>—</span>
                         </td>

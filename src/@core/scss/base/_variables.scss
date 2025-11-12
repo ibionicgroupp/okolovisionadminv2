@@ -100,7 +100,7 @@ $horizontal-nav-third-level-icon-size: 0.9rem !default;
 $horizontal-nav-items-icon-margin-inline-end: 0.625rem !default;
 $horizontal-nav-group-arrow-icon-size: 1.375rem !default;
 
-// ℹ️ We used SCSS variable because we want to allow users to update max height of popper content
+// ℹ️ We used SCSS variable because we want to allow user to update max height of popper content
 // 120px is combined height of navbar & horizontal nav
 $horizontal-nav-popper-content-max-height: calc(100dvh - 120px - 4rem) !default;
 

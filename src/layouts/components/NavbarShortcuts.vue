@@ -19,7 +19,7 @@ const shortcuts = [
     to: { name: 'apps-user-list' },
   },
   {
-    icon: 'tabler-users',
+    icon: 'tabler-user',
     title: 'Role Management',
     subtitle: 'Permission',
     to: { name: 'apps-roles' },
