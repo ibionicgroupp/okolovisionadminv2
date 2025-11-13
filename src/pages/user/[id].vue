@@ -4,6 +4,7 @@ import {useRoute, useRouter} from 'vue-router'
 import axios from 'axios'
 import themeUser from '@images/pages/user-profile-header-bg.png'
 
+
 // CF-ендпоінт
 const CF_ENDPOINT = 'https://us-central1-okolovision-48840.cloudfunctions.net/userGetData'
 const CF_UPDATE_PROFILE = 'https://us-central1-okolovision-48840.cloudfunctions.net/userUpdateProfile'
@@ -19,6 +20,8 @@ const router = useRouter()
 
 type UserData = any
 const user = ref<UserData | null>(null)
+const originalUser = ref(null)
+
 const loading = ref(false)
 const errorMsg = ref('')
 
@@ -89,7 +92,7 @@ function kyivKey() {
     day: '2-digit'
   }).formatToParts(new Date())
   const y = parts.find(p => p.type === 'year')?.value, m = parts.find(p => p.type === 'month')?.value,
-    d = parts.find(p => p.type === 'day')?.value
+      d = parts.find(p => p.type === 'day')?.value
   return `${y}-${m}-${d}`
 }
 
@@ -102,15 +105,20 @@ const fullName = computed(() => user.value ? `${user.value.firstName ?? ''} ${us
 
 // fetch
 async function fetchUser() {
-  loading.value = true;
+  loading.value = true
   errorMsg.value = ''
+
   try {
     const id = route.params.id as string
-    const res = await axios.post(CF_ENDPOINT, {userId: id})
+
+    const res = await axios.post(CF_ENDPOINT, { userId: id })
+
     user.value = res.data?.data ?? null
+    originalUser.value = JSON.parse(JSON.stringify(user.value))  // ← ОДИН РАЗ!
+
   } catch (e: any) {
-    console.error(e);
-    errorMsg.value = e?.response?.data?.message || 'Не вдалося завантажити користувача'
+    console.error(e)
+    errorMsg.value = e?.response?.data?.message || "Не вдалося завантажити користувача"
   } finally {
     loading.value = false
   }
@@ -141,16 +149,16 @@ const gameNames: Record<string, string> = {
 const gamesList = computed(() => {
   if (!user.value?.gameRecords) return []
   return Object.entries(user.value.gameRecords)
-    .map(([gameId, rec]: any) => ({
-      id: gameId,
-      name: gameNames[gameId] ?? gameId,
-      attempts: rec.attempts ?? 0,
-      sessions: rec.sessions ?? 0,
-      successfulAttempts: rec.successfulAttempts ?? 0,
-      totalPoints: rec.totalPoints ?? 0,
-      correctColorRecord: rec.correctColorRecord ?? {},
-    }))
-    .sort((a, b) => b.attempts - a.attempts) // 🔹 спочатку ті, в кого більше спроб
+      .map(([gameId, rec]: any) => ({
+        id: gameId,
+        name: gameNames[gameId] ?? gameId,
+        attempts: rec.attempts ?? 0,
+        sessions: rec.sessions ?? 0,
+        successfulAttempts: rec.successfulAttempts ?? 0,
+        totalPoints: rec.totalPoints ?? 0,
+        correctColorRecord: rec.correctColorRecord ?? {},
+      }))
+      .sort((a, b) => b.attempts - a.attempts) // 🔹 спочатку ті, в кого більше спроб
 })
 
 
@@ -222,13 +230,37 @@ const editForm = ref({
   gender: '',
   comments: '',
   subscriptionEndDate: null as any,
+  subscriptionEndDateFormatted: '',    // ← ДОДАНО
   dailyPlayTimeLimit: null as any,
 })
 
 const errors = ref<{ firstName?: string; lastName?: string }>({})
 
+const datePickerDialog = ref(false)
+
+function updateFormattedDate(val: any) {
+  if (!val) {
+    editForm.value.subscriptionEndDateFormatted = ''
+    return
+  }
+
+  const d = new Date(val)
+  if (!isNaN(d.getTime())) {
+    editForm.value.subscriptionEndDateFormatted = d.toLocaleDateString('uk-UA', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
+  }
+}
+
+
 function editUser() {
   if (!user.value) return
+
+  const rawDate = user.value.subscription?.subscriptionEndDate
+  const dateObj = rawDate ? new Date(rawDate) : null
+
   editForm.value = {
     firstName: user.value.firstName ?? '',
     lastName: user.value.lastName ?? '',
@@ -236,10 +268,25 @@ function editUser() {
     email: user.value.email ?? '',
     gender: user.value.gender ?? '',
     comments: user.value.comments ?? '',
-    subscriptionEndDate: user.value.subscription?.subscriptionEndDate ?? null,
+    subscriptionEndDate: dateObj,
+    subscriptionEndDateFormatted: dateObj
+        ? dateObj.toLocaleDateString('uk-UA', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        })
+        : '',
     dailyPlayTimeLimit: user.value.subscription?.dailyPlayTimeLimit ?? null,
   }
+
   editDialog.value = true
+}
+
+function normalizeDate(d: any) {
+  if (!d) return null
+  if (d instanceof Date) return d.toISOString()      // 🔹 Date → ISO-строка
+  const x = new Date(d)
+  return Number.isNaN(x.getTime()) ? null : x.toISOString()
 }
 
 function validateForm() {
@@ -253,13 +300,33 @@ function validateForm() {
   return Object.keys(errors.value).length === 0
 }
 
+function formatIsoToUa(dateStr: string | null) {
+  if (!dateStr) return "—"
+
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return "—"
+
+  const dd = String(d.getDate()).padStart(2, "0")
+  const mm = String(d.getMonth() + 1).padStart(2, "0")
+  const yyyy = d.getFullYear()
+
+  return `${dd}-${mm}-${yyyy}`
+}
+
+
 async function saveUser() {
   if (!validateForm()) return
   if (!user.value) return
 
+  function normalizeDate(d: any) {
+    if (!d) return null
+    const date = d instanceof Date ? d : new Date(d)
+    return !isNaN(date.getTime()) ? date.toISOString() : null
+  }
+
   try {
     const payload = {
-      userId: user.value.id,   // ⚠️ перевір що у тебе саме `id` а не `uid`
+      userId: user.value.id,   // ⚠️ тут лишається як є, якщо в тебе саме id документа
       updatedData: {
         firstName: editForm.value.firstName,
         lastName: editForm.value.lastName,
@@ -268,17 +335,64 @@ async function saveUser() {
         gender: editForm.value.gender,
         comments: editForm.value.comments,
         subscription: {
-          subscriptionEndDate: editForm.value.subscriptionEndDate,
+          subscriptionEndDate: normalizeDate(editForm.value.subscriptionEndDate),
           dailyPlayTimeLimit: editForm.value.dailyPlayTimeLimit,
-          isActive: true, // можна підставити значення по логіці
-        },
+          isActive: true,
+        }
       },
     }
 
+
     await axios.post(CF_UPDATE_PROFILE, payload)
 
-    // оновлюємо локальні дані користувача
-    user.value = {...user.value, ...payload.updatedData}
+
+    // --- Формуємо повідомлення Telegram ---
+
+
+    const oldEndDate = originalUser.value?.subscription?.subscriptionEndDate ?? null
+    const newEndDate = payload.updatedData?.subscription?.subscriptionEndDate ?? null
+
+    const oldLimit = originalUser.value?.subscription?.dailyPlayTimeLimit ?? null
+    const newLimit = payload.updatedData?.subscription?.dailyPlayTimeLimit ?? null
+
+// 👉 Перевірка змін
+    const isEndDateChanged = newEndDate !== oldEndDate
+    const isLimitChanged = newLimit !== oldLimit
+
+// ❗️ Якщо нема змін — виходимо без телеграму
+    if (!isEndDateChanged && !isLimitChanged) {
+      user.value = { ...user.value, ...payload.updatedData }
+      originalUser.value = JSON.parse(JSON.stringify(user.value))
+
+      copyText.value = 'Без змін — збережено'
+      copySnackbar.value = true
+      editDialog.value = false
+      return
+    }
+
+// 👉 Формуємо повідомлення
+    let message = ""
+
+    if (isEndDateChanged) {
+      message += `Змінено дату підписки адміністратором\n`
+      message += `З: ${formatIsoToUa(oldEndDate)} на <b>${formatIsoToUa(newEndDate)}</b>\n`
+    }
+
+    if (isLimitChanged) {
+      message += `Змінено денний часовий ліміт\n`
+      message += `З: ${oldLimit} на <b>${newLimit}</b>\n`
+    }
+
+    message += `Для користувача\n`
+    message += `👤 ${fullName.value}\n`
+    message += `📧 ${user.value?.email ?? ""}`
+
+// 👉 Відправка Telegram
+    await sendTelegram(message)
+
+// 👉 Оновлюємо локальні дані
+    user.value = { ...user.value, ...payload.updatedData }
+    originalUser.value = JSON.parse(JSON.stringify(user.value))
 
     copyText.value = 'Успішно збережено'
     copySnackbar.value = true
@@ -357,6 +471,25 @@ function deleteUser() {
 
 function clearDeviceId() {
 }
+
+
+async function sendTelegram(text: string) {
+  const BOT_TOKEN = "7173287275:AAHQMBGUz2trbmYKCoMf0MXXykeNADfUHBs"
+  const CHAT_ID = "-1003440329199"
+
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`
+
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: CHAT_ID,
+      text,
+      parse_mode: "HTML",
+    }),
+  })
+}
+
 </script>
 
 
@@ -368,61 +501,89 @@ function clearDeviceId() {
       <VDivider/>
       <VCardText>
         <VTextField
-          v-model="editForm.firstName"
-          label="Імʼя"
-          :error-messages="errors.firstName"
-          required
-          class="mb-4"
+            v-model="editForm.firstName"
+            label="Імʼя"
+            :error-messages="errors.firstName"
+            required
+            class="mb-4"
         />
         <VTextField
-          v-model="editForm.lastName"
-          label="Прізвище"
-          :error-messages="errors.lastName"
-          required
-          class="mb-4"
+            v-model="editForm.lastName"
+            label="Прізвище"
+            :error-messages="errors.lastName"
+            required
+            class="mb-4"
         />
         <VTextField
-          v-model="editForm.phoneNumber"
-          label="Телефон"
-          prefix="+38"
-          class="mb-4"
+            v-model="editForm.phoneNumber"
+            label="Телефон"
+            prefix="+38"
+            class="mb-4"
         />
 
         <VTextField
-          v-model="editForm.email"
-          label="Email"
-          type="email"
-          class="mb-4"
+            v-model="editForm.email"
+            label="Email"
+            type="email"
+            class="mb-4"
         />
         <VSelect
-          v-model="editForm.gender"
-          label="Стать"
-          :items="[
+            v-model="editForm.gender"
+            label="Стать"
+            :items="[
     { title: 'Чоловіча', value: 'Male' },
     { title: 'Жіноча', value: 'Female' },
     { title: 'Не вказано', value: 'Not specified' }
   ]"
-          item-title="title"
-          item-value="value"
-          class="mb-4"
+            item-title="title"
+            item-value="value"
+            class="mb-4"
         />
         <VTextarea
-          v-model="editForm.comments"
-          label="Коментар"
-          class="mb-4"
+            v-model="editForm.comments"
+            label="Коментар"
+            class="mb-4"
         />
 
         <VTextField
-          v-model="editForm.dailyPlayTimeLimit"
-          label="Хвилин на день"
-          type="number"
-          class="mb-4"
+            v-model="editForm.dailyPlayTimeLimit"
+            label="Хвилин на день"
+            type="number"
+            class="mb-4"
         />
-        <VDateInput
-          v-model="editForm.subscriptionEndDate"
-          label="Активний до"
-          class="mb-4"
+
+<!--        -&#45;&#45;&#45;&#45;&#45;&#45;-->
+
+<!--        <VDateInput-->
+<!--            v-model="editForm.subscriptionEndDate"-->
+<!--            label="Активний до"-->
+<!--            class="mb-4"-->
+<!--        />-->
+<!--        -&#45;&#45;&#45;&#45;&#45;&#45;-->
+<!--        {{ editForm.subscriptionEndDate }}-->
+<!--        -&#45;&#45;&#45;&#45;-->
+        <!-- Поле дати -->
+        <VTextField
+            v-model="editForm.subscriptionEndDateFormatted"
+            label="Активний до"
+            readonly
+            prepend-icon="tabler-calendar"
+            @click="datePickerDialog = true"
+            class="mb-4"
         />
+
+        <!-- Діалог -->
+        <VDialog v-model="datePickerDialog" width="350">
+          <VCard>
+            <VDatePicker
+                v-model="editForm.subscriptionEndDate"
+                @update:modelValue="updateFormattedDate"
+            />
+            <VCardActions>
+              <VBtn text @click="datePickerDialog = false">Закрити</VBtn>
+            </VCardActions>
+          </VCard>
+        </VDialog>
       </VCardText>
       <VDivider/>
       <VCardActions class="pt-3">
@@ -474,8 +635,8 @@ function clearDeviceId() {
                     <div class="w-100 position-relative mb-8">
                       <VImg
 
-                        :src="themeUser"
-                        class="mx-auto"
+                          :src="themeUser"
+                          class="mx-auto"
                       />
                       <!--                      <div class="rounded w-100 " style="height:112px; background: linear-gradient(90deg,#eee,#ddd);" />-->
                       <div class="position-absolute" style="top:72px; left:0; right:0;">
@@ -485,9 +646,9 @@ function clearDeviceId() {
 
 
                           <VIcon
-                            color="primary"
-                            size="55"
-                            icon="tabler-user"
+                              color="primary"
+                              size="55"
+                              icon="tabler-user"
                           />
                         </div>
                       </div>
@@ -510,10 +671,10 @@ function clearDeviceId() {
                       </span>
                       <label class="text-caption d-inline-flex align-center">
                         <input
-                          type="checkbox"
-                          class="me-1"
-                          :checked="isClinic(user)"
-                          @change="toggleClinic($event)"
+                            type="checkbox"
+                            class="me-1"
+                            :checked="isClinic(user)"
+                            @change="toggleClinic($event)"
                         >
                         Клініка
                       </label>
@@ -525,7 +686,8 @@ function clearDeviceId() {
                         {{ formatDateTime(user?.subscription?.subscriptionEndDate) }}
                       </div>
                       <div><strong style="color:red;">Сьогодні:</strong> {{ usedMinutesToday(user) }} хв.</div>
-                      <div><strong>Доступно на день:</strong> {{ user?.subscription?.dailyPlayTimeLimit ?? '—' }} хв.</div>
+                      <div><strong>Доступно на день:</strong> {{ user?.subscription?.dailyPlayTimeLimit ?? '—' }} хв.
+                      </div>
                     </div>
                     <br>
                     <div class="mt-2 text-caption text-medium-emphasis d-flex flex-column w-100">
@@ -533,16 +695,16 @@ function clearDeviceId() {
                       <div class="d-flex align-center">
                         <strong>Середня активність (90 днів, і дні без тренувань):</strong>
                         <VTooltip
-                          text="Сумуємо всі дні за останні 90 днів (якщо день порожній — беремо 0 хв) і ділимо на 90."
-                          location="top"
+                            text="Сумуємо всі дні за останні 90 днів (якщо день порожній — беремо 0 хв) і ділимо на 90."
+                            location="top"
                         >
                           <template #activator="{ props }">
                             <VIcon
-                              v-bind="props"
-                              size="18"
-                              color="primary"
-                              class="ms-1"
-                              icon="tabler-info-circle"
+                                v-bind="props"
+                                size="18"
+                                color="primary"
+                                class="ms-1"
+                                icon="tabler-info-circle"
                             />
                           </template>
                         </VTooltip>
@@ -552,16 +714,16 @@ function clearDeviceId() {
                       <div class="d-flex align-center mt-1">
                         <strong>Середня активність (90 днів, тільки дні з даними):</strong>
                         <VTooltip
-                          text="Беремо тільки ті дні, де є хвилини. Сумуємо й ділимо на кількість таких днів."
-                          location="top"
+                            text="Беремо тільки ті дні, де є хвилини. Сумуємо й ділимо на кількість таких днів."
+                            location="top"
                         >
                           <template #activator="{ props }">
                             <VIcon
-                              v-bind="props"
-                              size="18"
-                              color="primary"
-                              class="ms-1"
-                              icon="tabler-info-circle"
+                                v-bind="props"
+                                size="18"
+                                color="primary"
+                                class="ms-1"
+                                icon="tabler-info-circle"
                             />
                           </template>
                         </VTooltip>
@@ -580,8 +742,8 @@ function clearDeviceId() {
                 <VCard class="pa-4">
                   <div class="text-subtitle-1 mb-3">Щоденна активність (хв)</div>
                   <DailyPlayTimesChart
-                    v-if="user?.dailyPlayTimes || user?.subscription?.dailyPlayTimes"
-                    :times="user?.dailyPlayTimes || user?.subscription?.dailyPlayTimes"
+                      v-if="user?.dailyPlayTimes || user?.subscription?.dailyPlayTimes"
+                      :times="user?.dailyPlayTimes || user?.subscription?.dailyPlayTimes"
                   />
                   <div v-else class="text-medium-emphasis">Немає даних для графіка</div>
                 </VCard>
@@ -605,8 +767,8 @@ function clearDeviceId() {
 
                       <tbody>
                       <tr
-                        v-for="(promo, i) in (user?.subscription?.usedPromoCodes || [])"
-                        :key="i"
+                          v-for="(promo, i) in (user?.subscription?.usedPromoCodes || [])"
+                          :key="i"
                       >
                         <!--                        <td class="border px-3 py-2">{{ i + 1 }}</td>-->
                         <td class="border px-3 py-2">{{ promo?.promoCode ?? '—' }}</td>
@@ -656,10 +818,10 @@ function clearDeviceId() {
 
           <VRow>
             <VCol
-              v-if="gamesList?.length"
-              v-for="game in gamesList"
-              :key="game.id"
-              cols="12" sm="6" md="4" lg="3"
+                v-if="gamesList?.length"
+                v-for="game in gamesList"
+                :key="game.id"
+                cols="12" sm="6" md="4" lg="3"
             >
               <VCard class="pa-4 text-center">
                 <div class="text-medium-emphasis mb-2">{{ game.name }}</div>
@@ -667,13 +829,13 @@ function clearDeviceId() {
                 <VTooltip text="Прогрес це - успішні спроби / спроби * 100">
                   <template #activator="{ props }">
                     <VProgressCircular
-                      v-bind="props"
-                      :rotate="360"
-                      :size="70"
-                      :width="6"
-                      :model-value="game.attempts ? Math.round((game.successfulAttempts / game.attempts) * 100) : 0"
-                      color="primary"
-                      class="mb-2"
+                        v-bind="props"
+                        :rotate="360"
+                        :size="70"
+                        :width="6"
+                        :model-value="game.attempts ? Math.round((game.successfulAttempts / game.attempts) * 100) : 0"
+                        color="primary"
+                        class="mb-2"
                     >
                       {{ game.attempts ? Math.round((game.successfulAttempts / game.attempts) * 100) : 0 }}%
                     </VProgressCircular>
@@ -707,7 +869,7 @@ function clearDeviceId() {
                 <div class="d-flex justify-space-between mt-2 mb-2">
 
                   <VTooltip
-                    text="Це кількість уроків, урок рахується якщо гравець почав грати гру і зіграв мінімум 4 хв (в нас є панелька де пацієнти клініки і там відображається кількість уроків скільки зіграв пацієнт) ">
+                      text="Це кількість уроків, урок рахується якщо гравець почав грати гру і зіграв мінімум 4 хв (в нас є панелька де пацієнти клініки і там відображається кількість уроків скільки зіграв пацієнт) ">
                     <template #activator="{ props }">
                       <div v-bind="props" style="width: 40%">
                         <div class="text-caption">Уроки</div>
@@ -751,8 +913,8 @@ function clearDeviceId() {
             </VCol>
 
             <VCol
-              v-else class="text-center py-6 text-gray-500"
-              cols="12"
+                v-else class="text-center py-6 text-gray-500"
+                cols="12"
             >
               Статистика по іграх відсутня
             </VCol>

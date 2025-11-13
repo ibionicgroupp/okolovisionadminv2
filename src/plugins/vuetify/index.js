@@ -6,6 +6,7 @@ import { icons } from './icons'
 import { staticPrimaryColor, staticPrimaryDarkenColor, themes } from './theme'
 import { themeConfig } from '@themeConfig'
 
+import { uk } from 'vuetify/locale'
 // Styles
 import { cookieRef } from '@/@layouts/stores/config'
 import '@core/scss/template/libs/vuetify/index.scss'
@@ -38,6 +39,10 @@ export default function (app) {
     },
     defaults,
     icons,
+      locale: {
+          locale: 'uk',
+          messages: { uk },
+      },
     theme: optionTheme,
   })
 
