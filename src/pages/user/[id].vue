@@ -29,6 +29,9 @@ const errorMsg = ref('')
 const copySnackbar = ref(false)
 const copyText = ref('')
 
+const activeClinicUser = ref(null)
+
+
 // helpers
 function toDate(v: any) {
   const d = new Date(v);
@@ -398,13 +401,15 @@ async function saveUser() {
     copySnackbar.value = true
     editDialog.value = false
   } catch (err: any) {
-    console.error('Помилка при оновленні користувача', err)
+    console.error("Помилка при оновленні користувача", err)
+    console.log("SERVER RESPONSE:", err.response?.data)
     copyText.value = 'Помилка при збереженні'
     copySnackbar.value = true
   }
 }
 
 const avg90DaysStrict = computed(() => {
+  const u = activeUser.value
   if (!user.value) return 0
   const times = user.value.subscription?.dailyPlayTimes ?? user.value.dailyPlayTimes ?? {}
 
@@ -489,6 +494,40 @@ async function sendTelegram(text: string) {
     }),
   })
 }
+function onSelectClinicUser(user) {
+  // Якщо user = null → зняли вибір → показуємо клініку
+  activeClinicUser.value = user
+}
+
+const activeUser = computed(() => {
+  // Якщо це НЕ клініка → повертаємо самого користувача
+  if (!isClinic(user.value)) return user.value
+
+  // Якщо клініка, але вибраний користувач — показуємо його
+  if (activeClinicUser.value) return activeClinicUser.value
+
+  // Якщо клініка і нікого не вибрано — показуємо дані клініки
+  return user.value
+})
+
+
+const activeTimes = computed(() => {
+  return activeUser.value?.dailyPlayTimes || activeUser.value?.subscription?.dailyPlayTimes || {}
+})
+
+const activeGamesList = computed(() => {
+  if (!activeUser.value?.gameRecords) return []
+
+  return Object.entries(activeUser.value.gameRecords).map(([gameId, rec])=> ({
+    id: gameId,
+    name: gameNames[gameId] ?? gameId,
+    attempts: rec.attempts ?? 0,
+    sessions: rec.sessions ?? 0,
+    successfulAttempts: rec.successfulAttempts ?? 0,
+    totalPoints: rec.totalPoints ?? 0,
+    correctColorRecord: rec.correctColorRecord ?? {},
+  })).sort((a, b) => b.attempts - a.attempts)
+})
 
 </script>
 
@@ -683,10 +722,10 @@ async function sendTelegram(text: string) {
                     <div class="mt-4 text-caption text-medium-emphasis d-flex justify-space-between w-100">
                       <div>
                         <strong>Активно до:</strong>
-                        {{ formatDateTime(user?.subscription?.subscriptionEndDate) }}
+                        {{ formatDateTime(activeUser?.subscription?.subscriptionEndDate) }}
                       </div>
-                      <div><strong style="color:red;">Сьогодні:</strong> {{ usedMinutesToday(user) }} хв.</div>
-                      <div><strong>Доступно на день:</strong> {{ user?.subscription?.dailyPlayTimeLimit ?? '—' }} хв.
+                      <div><strong style="color:red;">Сьогодні:</strong> {{ usedMinutesToday(activeUser) }} хв.</div>
+                      <div><strong>Доступно на день:</strong> {{ activeUser?.subscription?.dailyPlayTimeLimit ?? '—' }} хв.
                       </div>
                     </div>
                     <br>
@@ -742,9 +781,11 @@ async function sendTelegram(text: string) {
                 <VCard class="pa-4">
                   <div class="text-subtitle-1 mb-3">Щоденна активність (хв)</div>
                   <DailyPlayTimesChart
-                      v-if="user?.dailyPlayTimes || user?.subscription?.dailyPlayTimes"
-                      :times="user?.dailyPlayTimes || user?.subscription?.dailyPlayTimes"
-                  />
+                    v-if="user?.dailyPlayTimes || user?.subscription?.dailyPlayTimes"
+                    :times="activeUser?.dailyPlayTimes || activeUser?.subscription?.dailyPlayTimes" />
+
+
+
                   <div v-else class="text-medium-emphasis">Немає даних для графіка</div>
                 </VCard>
               </VCol>
@@ -792,9 +833,13 @@ async function sendTelegram(text: string) {
               <VCol cols="12" md="7" v-if="isClinic(user)">
                 <VCard class="pa-4">
                   <div class="text-subtitle-1 mb-3">Користувачі клініки</div>
-                  <ClinicUsersTable :clinic-user="user"
-                                    :users="clinicUsers"
-                                    :loading="loadingClinicUsers"/>
+                  <ClinicUsersTable
+                    :clinic-user="user"
+                    :users="clinicUsers"
+                    :loading="loadingClinicUsers"
+                    @select-user="onSelectClinicUser"
+                  />
+
                 </VCard>
               </VCol>
             </VRow>
@@ -817,9 +862,10 @@ async function sendTelegram(text: string) {
 
 
           <VRow>
+            <template v-if="activeGamesList?.length">
             <VCol
-                v-if="gamesList?.length"
-                v-for="game in gamesList"
+                v-for="game in activeGamesList"
+
                 :key="game.id"
                 cols="12" sm="6" md="4" lg="3"
             >
@@ -911,13 +957,12 @@ async function sendTelegram(text: string) {
                 </div>
               </VCard>
             </VCol>
-
-            <VCol
-                v-else class="text-center py-6 text-gray-500"
-                cols="12"
-            >
-              Статистика по іграх відсутня
-            </VCol>
+            </template>
+            <template v-else>
+              <VCol cols="12" class="text-center py-6 text-gray-500">
+                Статистика по іграх відсутня
+              </VCol>
+            </template>
           </VRow>
 
         </VCardText>

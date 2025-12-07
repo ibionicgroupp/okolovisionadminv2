@@ -444,9 +444,9 @@ function clearDeviceId() {
       <VCard>
         <VCardTitle class="d-flex align-center justify-space-between">
           <div class="d-flex align-center gap-x-3">
-            <VBtn variant="text" prepend-icon="tabler-arrow-left" @click="router.push('/user')">
-              Назад
-            </VBtn>
+<!--            <VBtn variant="text" prepend-icon="tabler-arrow-left" @click="router.push('/distributors')">-->
+<!--              Назад-->
+<!--            </VBtn>-->
             <span class="text-h6">Картка користувача</span>
           </div>
 <!--          <div class="d-flex align-center gap-x-2">-->

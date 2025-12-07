@@ -61,6 +61,15 @@ router.beforeEach(async (to) => {
 
     // console.log("🧭 Role:", role, distributorId)
 
+    // 👉 Автоматичний redirect з кореня сайту "/"
+    if (to.path === "/" || to.path === "") {
+        if (role === "admin") {
+            return "/users"
+        }
+        // if (role === "distributor") {
+        //     return `/distributors/${distributorId}`
+        // }
+    }
     // 🔒 Обмеження для distributor
     if (role === "distributor") {
         const isOwnPage = to.path === `/distributors/${distributorId}`

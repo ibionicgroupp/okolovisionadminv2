@@ -10,6 +10,7 @@
       <table class="min-w-full bg-white border rounded shadow text-sm w-100">
         <thead>
         <tr>
+          <th class="border px-3 py-2"></th> <!-- чекбокс -->
           <th class="border px-3 py-2">№</th>
           <th class="border px-3 py-2">Ім’я та Прізвище</th>
           <th class="border px-3 py-2">Дата народження</th>
@@ -21,10 +22,22 @@
         </thead>
 
         <tbody>
-
         <tr v-for="(u, i) in clinicUsers" :key="u.id">
+          <td class="border px-3 py-2">
+            <input
+              type="checkbox"
+              :checked="selectedUserId === u.id"
+              @change="toggleSelect(u)"
+            />
+
+          </td>
+<!--          <td class="border px-3 py-2">-->
+<!--            <input type="checkbox" @change="emitSelect(u)" />-->
+<!--          </td>-->
+
           <td class="border px-3 py-2">{{ i + 1 }}</td>
-          <td class="border px-3 py-2">{{ fullName(u) }}</td>
+<!--          <a :href="`tel:${phoneValue(u)}`">{{ phoneValue(u) }}</a>-->
+          <td class="border px-3 py-2">{{ fullName(u) }} </td>
           <td class="border px-3 py-2">{{ formatDob(u) }}</td>
           <td class="border px-3 py-2">
             <a :href="`tel:${phoneValue(u)}`">{{ phoneValue(u) }}</a>
@@ -33,13 +46,13 @@
           <td class="border px-3 py-2">{{ cityValue(u) }}</td>
           <td class="border px-3 py-2">{{ sessionsCount(u) }}</td>
         </tr>
-
         <tr v-if="!clinicUsers.length">
           <td class="border px-3 py-2 text-center text-gray-500" colspan="7">
             Немає користувачів цієї клініки
           </td>
         </tr>
         </tbody>
+
       </table>
     </div>
 
@@ -139,4 +152,25 @@ function formatDob(u) {
   const d = parseAnyDate(raw)
   return d ? formatUk(d) : '-'
 }
+
+
+
+// function emitSelect(user) {
+//   emit('select-user', user)
+// }
+const emit = defineEmits(['select-user'])
+const selectedUserId = ref(null)
+
+function toggleSelect(user) {
+  if (selectedUserId.value === user.id) {
+    // Якщо натиснули на вже обраного → зняти
+    selectedUserId.value = null
+    emit('select-user', null)
+  } else {
+    // Інакше вибрати нового → всі інші автоматично знімуться
+    selectedUserId.value = user.id
+    emit('select-user', user)
+  }
+}
+
 </script>

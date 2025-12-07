@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { watch } from 'vue'
-import { getAuth, onAuthStateChanged } from "firebase/auth"
-import { ref, onMounted, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import {watch} from 'vue'
+import {getAuth, onAuthStateChanged} from "firebase/auth"
+import {ref, onMounted, computed} from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import DistributorForm from '@/components/distributors/DistributorForm.vue'
 
@@ -14,7 +14,6 @@ definePage({
     requiresAuth: true,
   },
 })
-
 
 
 const isAdmin = ref(false)
@@ -39,6 +38,7 @@ type Distributor = {
 }
 
 const route = useRoute()
+const router = useRouter()
 const record = ref<Distributor | null>(null)
 const notFound = computed(() => !record.value)
 const loading = ref(true)
@@ -60,8 +60,8 @@ async function loadDistributor() {
 
     const res = await axios.post(
       API_URL,
-      { action: "get", id: route.params.id },
-      { headers: { Authorization: `Bearer ${token}` } }
+      {action: "get", id: route.params.id},
+      {headers: {Authorization: `Bearer ${token}`}}
     )
 
     record.value = res.data?.success ? res.data.data : null
@@ -73,6 +73,7 @@ async function loadDistributor() {
     await loadPromocodesForDistributor()
   }
 }
+
 onMounted(() => {
   const auth = getAuth()
 
@@ -119,9 +120,10 @@ function formatDate(ts?: FirestoreTimestamp) {
 
 // ===== Редагування =====
 const edit = ref(false)
+
 async function save(payload: Omit<Distributor, 'id'>) {
   if (!record.value) return
-  await axios.post(API_URL, { action: 'update', id: record.value.id, data: payload })
+  await axios.post(API_URL, {action: 'update', id: record.value.id, data: payload})
   await loadDistributor()
   edit.value = false
 }
@@ -141,7 +143,7 @@ async function searchPromo() {
 
   searching.value = true
   try {
-    const res = await axios.post(API_URL, { action: 'findPromocode', data: { code } })
+    const res = await axios.post(API_URL, {action: 'findPromocode', data: {code}})
     if (res.data.success) {
       foundPromo.value = res.data.data
     } else {
@@ -192,6 +194,7 @@ watch(promoDialog, (isOpen) => {
     if (searchTimeout) clearTimeout(searchTimeout)
   }
 })
+
 function onClearPromo() {
   // у Vuetify clear ставить null — явно приводимо до ''
   promoCode.value = ''
@@ -246,7 +249,7 @@ async function loadPromocodesForDistributor() {
   try {
     const res = await axios.post(API_URL, {
       action: 'getPromocodesByIds',
-      data: { ids: record.value.promocodes }
+      data: {ids: record.value.promocodes}
     })
     promocodesList.value = res.data?.data || []
   } catch (e) {
@@ -286,6 +289,12 @@ function isActive(promo: any) {
 }
 
 const activeTab = ref('used') // Активний таб за замовчуванням — Використані
+function onPromoRowClick(_: MouseEvent, row: any) {
+  const userId = row?.item?.user?.id
+  if (userId) {
+    window.open(`/distributors/userStat?id=${userId}`, '_blank')
+  }
+}
 
 </script>
 
@@ -293,7 +302,7 @@ const activeTab = ref('used') // Активний таб за замовчува
   <VContainer fluid>
     <!-- 🔹 Лоадер має бути ПЕРШИМ -->
     <div v-if="loading" class="d-flex justify-center py-6">
-      <VProgressCircular indeterminate />
+      <VProgressCircular indeterminate/>
     </div>
 
     <!-- 🔹 Основний контент -->
@@ -307,7 +316,7 @@ const activeTab = ref('used') // Активний таб за замовчува
       <div class="d-flex align-center justify-space-between mb-4">
         <div class="d-flex align-center gap-4">
           <VAvatar size="60" color="primary" variant="tonal">
-            <VIcon icon="tabler-user" size="36" />
+            <VIcon icon="tabler-user" size="36"/>
           </VAvatar>
           <div>
             <h2 class="mb-1">{{ record?.name }}</h2>
@@ -315,14 +324,15 @@ const activeTab = ref('used') // Активний таб за замовчува
               {{ record?.type === 'clinic' ? 'Клініка' : 'Лікар' }} — {{ record?.city }}
             </div>
             <div class="text-medium-emphasis">
-              <VIcon icon="tabler-phone" size="16" class="me-1" />
+              <VIcon icon="tabler-phone" size="16" class="me-1"/>
               {{ record?.phone }}
             </div>
           </div>
         </div>
 
         <div class="d-flex gap-2" v-if="isAdmin">
-          <VBtn color="primary" prepend-icon="tabler-ticket" @click="promoDialog = true" @after-leave="resetPromoDialog">
+          <VBtn color="primary" prepend-icon="tabler-ticket" @click="promoDialog = true"
+                @after-leave="resetPromoDialog">
             Додати промокод
           </VBtn>
           <VBtn color="secondary" prepend-icon="tabler-edit" @click="edit = true">
@@ -332,7 +342,7 @@ const activeTab = ref('used') // Активний таб за замовчува
 
       </div>
 
-      <VDivider class="my-4" />
+      <VDivider class="my-4"/>
 
       <!-- ====== LOGIN INFO ====== -->
       <VRow class="mb-4">
@@ -350,9 +360,9 @@ const activeTab = ref('used') // Активний таб за замовчува
             <template v-else>
               ********
             </template>
-<!--            <div class="text-body-1 font-weight-medium">-->
-<!--              {{ showPassword ? record?.password : maskedPassword }}-->
-<!--            </div>-->
+            <!--            <div class="text-body-1 font-weight-medium">-->
+            <!--              {{ showPassword ? record?.password : maskedPassword }}-->
+            <!--            </div>-->
 
             <v-btn
               size="small"
@@ -371,19 +381,19 @@ const activeTab = ref('used') // Активний таб за замовчува
         </VCol>
       </VRow>
 
-      <VDivider class="my-6" />
+      <VDivider class="my-6"/>
 
       <!-- ====== PROMOCODES ====== -->
       <h3 class="mb-4">Прикріплені промокоди</h3>
 
       <VTabs v-model="activeTab" grow>
         <VTab value="used">
-          <VIcon icon="tabler-check" class="me-2 text-success" />
+          <VIcon icon="tabler-check" class="me-2 text-success"/>
           Використані
         </VTab>
 
         <VTab value="unused">
-          <VIcon icon="tabler-clock-pause" class="me-2 text-warning" />
+          <VIcon icon="tabler-clock-pause" class="me-2 text-warning"/>
           Не використані
         </VTab>
       </VTabs>
@@ -395,13 +405,13 @@ const activeTab = ref('used') // Активний таб за замовчува
             <VCol cols="12">
               <VCard variant="flat" elevation="2" class="pa-2">
                 <VCardTitle class="text-h6 d-flex align-center">
-                  <VIcon icon="tabler-check" class="me-2 text-success" />
+                  <VIcon icon="tabler-check" class="me-2 text-success"/>
                   Використані
                 </VCardTitle>
 
                 <VCardText>
                   <div v-if="loadingPromocodes" class="d-flex justify-center py-6">
-                    <VProgressCircular indeterminate />
+                    <VProgressCircular indeterminate/>
                   </div>
 
                   <div v-else-if="!activePromos.length" class="text-medium-emphasis py-4">
@@ -413,7 +423,8 @@ const activeTab = ref('used') // Активний таб за замовчува
                     :items="activePromos"
                     class="text-no-wrap"
                     density="comfortable"
-                    hide-default-footer
+                    :items-per-page="-1"
+                    hover
                     height="420"
                   >
                     <template #headers>
@@ -428,7 +439,10 @@ const activeTab = ref('used') // Активний таб за замовчува
                     </template>
 
                     <template #item="{ item }">
-                      <tr>
+                      <tr
+                        style="cursor: pointer"
+                        @click="onPromoRowClick($event, { item })"
+                      >
                         <td class="font-weight-medium">{{ item.code || item.barcode }}</td>
                         <td>
                           <VChip size="small" :color="isActive(item) ? 'success' : 'error'">
@@ -437,18 +451,9 @@ const activeTab = ref('used') // Активний таб за замовчува
                         </td>
                         <td>{{ new Date(item.dateUsed).toLocaleDateString('uk-UA') }}</td>
                         <td>
-                      <span v-if="item.user">
-<RouterLink
-  :to="`/distributors/userStat?id=${item.user.id}`"
-  class="text-primary text-decoration-underline"
-  style="cursor: pointer;"
->
-  {{ item.user.name || item.user.email || item.user.id }}
-</RouterLink>
-
-
-
-</span>
+        <span v-if="item.user" class="text-primary">
+          {{ item.user.name || item.user.email || item.user.id }}
+        </span>
                           <span v-else>—</span>
                         </td>
                         <td>{{ item.durationInMonths ?? '—' }}</td>
@@ -468,13 +473,13 @@ const activeTab = ref('used') // Активний таб за замовчува
             <VCol cols="12">
               <VCard variant="flat" elevation="2" class="pa-2">
                 <VCardTitle class="text-h6 d-flex align-center">
-                  <VIcon icon="tabler-clock-pause" class="me-2 text-warning" />
+                  <VIcon icon="tabler-clock-pause" class="me-2 text-warning"/>
                   Не використані
                 </VCardTitle>
 
                 <VCardText>
                   <div v-if="loadingPromocodes" class="d-flex justify-center py-6">
-                    <VProgressCircular indeterminate />
+                    <VProgressCircular indeterminate/>
                   </div>
 
                   <div v-else-if="!inactivePromos.length" class="text-medium-emphasis py-4">
@@ -486,7 +491,7 @@ const activeTab = ref('used') // Активний таб за замовчува
                     :items="inactivePromos"
                     class="text-no-wrap"
                     density="comfortable"
-                    hide-default-footer
+                    :items-per-page="-1"
                     height="420"
                   >
                     <template #headers>
@@ -501,7 +506,7 @@ const activeTab = ref('used') // Активний таб за замовчува
                       <tr>
                         <td class="font-weight-medium">{{ item.code || item.barcode }}</td>
                         <td>{{ item.durationInMonths ?? '—' }}</td>
-                        <td>{{ item.dailyPlayTimeMinutes ?? '—' }} </td>
+                        <td>{{ item.dailyPlayTimeMinutes ?? '—' }}</td>
                       </tr>
                     </template>
                   </VDataTable>
@@ -512,115 +517,115 @@ const activeTab = ref('used') // Активний таб за замовчува
         </VWindowItem>
       </VWindow>
 
-<!--      <VRow>-->
-<!--        &lt;!&ndash; 🔹 Не активовані &ndash;&gt;-->
-<!--        <VCol cols="12" md="5">-->
-<!--          <VCard variant="flat" elevation="2" class="pa-2">-->
-<!--            <VCardTitle class="text-h6 d-flex align-center">-->
-<!--              <VIcon icon="tabler-clock-pause" class="me-2 text-warning" />-->
-<!--              Не використані-->
-<!--            </VCardTitle>-->
+      <!--      <VRow>-->
+      <!--        &lt;!&ndash; 🔹 Не активовані &ndash;&gt;-->
+      <!--        <VCol cols="12" md="5">-->
+      <!--          <VCard variant="flat" elevation="2" class="pa-2">-->
+      <!--            <VCardTitle class="text-h6 d-flex align-center">-->
+      <!--              <VIcon icon="tabler-clock-pause" class="me-2 text-warning" />-->
+      <!--              Не використані-->
+      <!--            </VCardTitle>-->
 
-<!--            <VCardText>-->
-<!--              <div v-if="loadingPromocodes" class="d-flex justify-center py-6">-->
-<!--                <VProgressCircular indeterminate />-->
-<!--              </div>-->
+      <!--            <VCardText>-->
+      <!--              <div v-if="loadingPromocodes" class="d-flex justify-center py-6">-->
+      <!--                <VProgressCircular indeterminate />-->
+      <!--              </div>-->
 
-<!--              <div v-else-if="!inactivePromos.length" class="text-medium-emphasis py-4">-->
-<!--                Немає неактивованих промокодів-->
-<!--              </div>-->
+      <!--              <div v-else-if="!inactivePromos.length" class="text-medium-emphasis py-4">-->
+      <!--                Немає неактивованих промокодів-->
+      <!--              </div>-->
 
-<!--              <VDataTable-->
-<!--                v-else-->
-<!--                :items="inactivePromos"-->
-<!--                class="text-no-wrap"-->
-<!--                density="comfortable"-->
-<!--                hide-default-footer-->
-<!--                height="420"-->
-<!--              >-->
-<!--                <template #headers>-->
-<!--                  <tr>-->
-<!--                    <th>Код</th>-->
-<!--                    <th>Тривалість (міс)</th>-->
-<!--                    <th>Хв/день</th>-->
-<!--                  </tr>-->
-<!--                </template>-->
+      <!--              <VDataTable-->
+      <!--                v-else-->
+      <!--                :items="inactivePromos"-->
+      <!--                class="text-no-wrap"-->
+      <!--                density="comfortable"-->
+      <!--                hide-default-footer-->
+      <!--                height="420"-->
+      <!--              >-->
+      <!--                <template #headers>-->
+      <!--                  <tr>-->
+      <!--                    <th>Код</th>-->
+      <!--                    <th>Тривалість (міс)</th>-->
+      <!--                    <th>Хв/день</th>-->
+      <!--                  </tr>-->
+      <!--                </template>-->
 
-<!--                <template #item="{ item }">-->
-<!--                  <tr>-->
-<!--                    <td class="font-weight-medium">{{ item.code || item.barcode }}</td>-->
-<!--                    <td>{{ item.durationInMonths ?? '—' }}</td>-->
-<!--                    <td>{{ item.dailyPlayTimeMinutes ?? '—' }} </td>-->
-<!--                  </tr>-->
-<!--                </template>-->
-<!--              </VDataTable>-->
-<!--            </VCardText>-->
-<!--          </VCard>-->
-<!--        </VCol>-->
+      <!--                <template #item="{ item }">-->
+      <!--                  <tr>-->
+      <!--                    <td class="font-weight-medium">{{ item.code || item.barcode }}</td>-->
+      <!--                    <td>{{ item.durationInMonths ?? '—' }}</td>-->
+      <!--                    <td>{{ item.dailyPlayTimeMinutes ?? '—' }} </td>-->
+      <!--                  </tr>-->
+      <!--                </template>-->
+      <!--              </VDataTable>-->
+      <!--            </VCardText>-->
+      <!--          </VCard>-->
+      <!--        </VCol>-->
 
-<!--        &lt;!&ndash; 🔸 Активовані &ndash;&gt;-->
-<!--        <VCol cols="12" md="7">-->
-<!--          <VCard variant="flat" elevation="2" class="pa-2">-->
-<!--            <VCardTitle class="text-h6 d-flex align-center">-->
-<!--              <VIcon icon="tabler-check" class="me-2 text-success" />-->
-<!--              Використані-->
-<!--            </VCardTitle>-->
+      <!--        &lt;!&ndash; 🔸 Активовані &ndash;&gt;-->
+      <!--        <VCol cols="12" md="7">-->
+      <!--          <VCard variant="flat" elevation="2" class="pa-2">-->
+      <!--            <VCardTitle class="text-h6 d-flex align-center">-->
+      <!--              <VIcon icon="tabler-check" class="me-2 text-success" />-->
+      <!--              Використані-->
+      <!--            </VCardTitle>-->
 
-<!--            <VCardText>-->
-<!--              <div v-if="loadingPromocodes" class="d-flex justify-center py-6">-->
-<!--                <VProgressCircular indeterminate />-->
-<!--              </div>-->
+      <!--            <VCardText>-->
+      <!--              <div v-if="loadingPromocodes" class="d-flex justify-center py-6">-->
+      <!--                <VProgressCircular indeterminate />-->
+      <!--              </div>-->
 
-<!--              <div v-else-if="!activePromos.length" class="text-medium-emphasis py-4">-->
-<!--                Немає активованих промокодів-->
-<!--              </div>-->
+      <!--              <div v-else-if="!activePromos.length" class="text-medium-emphasis py-4">-->
+      <!--                Немає активованих промокодів-->
+      <!--              </div>-->
 
-<!--              <VDataTable-->
-<!--                v-else-->
-<!--                :items="activePromos"-->
-<!--                class="text-no-wrap"-->
-<!--                density="comfortable"-->
-<!--                hide-default-footer-->
-<!--                height="420"-->
-<!--              >-->
-<!--                <template #headers>-->
-<!--                  <tr>-->
-<!--                    <th>Код</th>-->
-<!--                    <th>Статус</th>-->
-<!--                    <th>Дата активації</th>-->
-<!--                    <th>Користувач</th>-->
-<!--                    <th>Тривалість (міс)</th>-->
-<!--                    <th>Хв/день</th>-->
-<!--                  </tr>-->
-<!--                </template>-->
+      <!--              <VDataTable-->
+      <!--                v-else-->
+      <!--                :items="activePromos"-->
+      <!--                class="text-no-wrap"-->
+      <!--                density="comfortable"-->
+      <!--                hide-default-footer-->
+      <!--                height="420"-->
+      <!--              >-->
+      <!--                <template #headers>-->
+      <!--                  <tr>-->
+      <!--                    <th>Код</th>-->
+      <!--                    <th>Статус</th>-->
+      <!--                    <th>Дата активації</th>-->
+      <!--                    <th>Користувач</th>-->
+      <!--                    <th>Тривалість (міс)</th>-->
+      <!--                    <th>Хв/день</th>-->
+      <!--                  </tr>-->
+      <!--                </template>-->
 
-<!--                <template #item="{ item }">-->
-<!--                  <tr>-->
-<!--                    <td class="font-weight-medium">{{ item.code || item.barcode }}</td>-->
-<!--                    <td>-->
+      <!--                <template #item="{ item }">-->
+      <!--                  <tr>-->
+      <!--                    <td class="font-weight-medium">{{ item.code || item.barcode }}</td>-->
+      <!--                    <td>-->
 
-<!--                      <VChip size="small" :color="isActive(item) ? 'success' : 'error'">-->
-<!--                        {{ isActive(item) ? 'Активний' : 'Не активний' }}-->
-<!--                      </VChip>-->
+      <!--                      <VChip size="small" :color="isActive(item) ? 'success' : 'error'">-->
+      <!--                        {{ isActive(item) ? 'Активний' : 'Не активний' }}-->
+      <!--                      </VChip>-->
 
-<!--                    </td>-->
-<!--                    <td>{{ new Date(item.dateUsed).toLocaleDateString('uk-UA') }}</td>-->
+      <!--                    </td>-->
+      <!--                    <td>{{ new Date(item.dateUsed).toLocaleDateString('uk-UA') }}</td>-->
 
-<!--                    <td>-->
-<!--                      <span v-if="item.user">-->
-<!--                        {{ item.user.name || item.user.email || item.user.id }}-->
-<!--                      </span>-->
-<!--                      <span v-else>—</span>-->
-<!--                    </td>-->
-<!--                    <td>{{ item.durationInMonths ?? '—' }}</td>-->
-<!--                    <td>{{ item.dailyPlayTimeMinutes ?? '—' }}</td>-->
-<!--                  </tr>-->
-<!--                </template>-->
-<!--              </VDataTable>-->
-<!--            </VCardText>-->
-<!--          </VCard>-->
-<!--        </VCol>-->
-<!--      </VRow>-->
+      <!--                    <td>-->
+      <!--                      <span v-if="item.user">-->
+      <!--                        {{ item.user.name || item.user.email || item.user.id }}-->
+      <!--                      </span>-->
+      <!--                      <span v-else>—</span>-->
+      <!--                    </td>-->
+      <!--                    <td>{{ item.durationInMonths ?? '—' }}</td>-->
+      <!--                    <td>{{ item.dailyPlayTimeMinutes ?? '—' }}</td>-->
+      <!--                  </tr>-->
+      <!--                </template>-->
+      <!--              </VDataTable>-->
+      <!--            </VCardText>-->
+      <!--          </VCard>-->
+      <!--        </VCol>-->
+      <!--      </VRow>-->
 
 
     </VCard>
@@ -636,7 +641,7 @@ const activeTab = ref('used') // Активний таб за замовчува
       <VCard>
         <VCardTitle>Редагувати</VCardTitle>
         <VCardText>
-          <DistributorForm v-if="record" :initial="record" @submit="save" />
+          <DistributorForm v-if="record" :initial="record" @submit="save"/>
         </VCardText>
       </VCard>
     </VDialog>
@@ -660,11 +665,11 @@ const activeTab = ref('used') // Активний таб за замовчува
             <div><b>Код:</b> {{ foundPromo.code || foundPromo.barcode }}</div>
             <div><b>Тривалість:</b> {{ foundPromo.durationInMonths }} міс.</div>
             <div><b>Активовано:</b> {{ foundPromo.isActivated ? 'Так' : 'Ні' }}</div>
-<!--            {{foundPromo}}-->
+            <!--            {{foundPromo}}-->
             <div><b>Дата створення:</b> {{ new Date(foundPromo.dateCreated).toLocaleString() }}</div>
             <div>
               <b>Дата використання:</b>
-              {{foundPromo?.dateUsed ? new Date(foundPromo.dateUsed).toLocaleString() : '—' }}
+              {{ foundPromo?.dateUsed ? new Date(foundPromo.dateUsed).toLocaleString() : '—' }}
             </div>
 
             <div>
