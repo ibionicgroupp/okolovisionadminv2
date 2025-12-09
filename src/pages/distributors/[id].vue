@@ -21,6 +21,9 @@ const isAdmin = ref(false)
 
 const API_URL = "https://admindistributorsv2-956914206562.europe-west1.run.app"
 
+
+const promoInput = ref()
+const scannedList = ref<any[]>([])
 // ===== Типи =====
 type FirestoreTimestamp = { _seconds: number; _nanoseconds: number }
 
@@ -142,16 +145,33 @@ async function searchPromo() {
   if (!code) return
 
   searching.value = true
+
   try {
-    const res = await axios.post(API_URL, {action: 'findPromocode', data: {code}})
-    if (res.data.success) {
-      foundPromo.value = res.data.data
-    } else {
+    const res = await axios.post(API_URL, {
+      action: 'findPromocode',
+      data: { code }
+    })
+
+    if (!res.data.success) {
       foundPromo.value = null
       snackbarText.value = res.data.message || 'Промокод не знайдено'
       snackbarColor.value = 'error'
       snackbar.value = true
+      return
     }
+
+    const promo = res.data.data
+    foundPromo.value = promo
+
+    // ДОДАЄМО в scannedList без дублювання
+    if (!scannedList.value.find(p => p.id === promo.id)) {
+      scannedList.value.push(promo)
+    }
+
+    // очищення поля + фокус назад
+    promoCode.value = ''
+    setTimeout(() => promoInput.value?.focus(), 50)
+
   } catch (e) {
     foundPromo.value = null
     snackbarText.value = 'Помилка при пошуку промокоду'
@@ -162,38 +182,47 @@ async function searchPromo() {
   }
 }
 
+
+
+//
+// watch(promoDialog, (open) => {
+//   if (open) {
+//     setTimeout(() => promoInput.value?.focus(), 50)
+//   }
+// })
+
+
 // 🕒 debounce watch
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
 watch(promoCode, (newValue) => {
   const code = (newValue ?? '').trim()
 
-  // скасовуємо попередній таймер
   if (searchTimeout) clearTimeout(searchTimeout)
 
-  if (!code) {
-    // якщо поле порожнє (в т.ч. після clear) — чистимо результат і не шукаємо
-    foundPromo.value = null
-    return
-  }
+  // якщо поле порожнє — НЕ чіпаємо foundPromo
+  if (!code) return
 
-  // запускаємо пошук через 1с після останньої зміни
   searchTimeout = setTimeout(() => {
     searchPromo()
-  }, 1000)
+  }, 500)
 })
 
-watch(promoDialog, (isOpen) => {
-  if (!isOpen) {
-    // коли діалог закривається — очищаємо все
+
+watch(promoDialog, (open) => {
+  if (open) {
+    // відкривається модалка
+    setTimeout(() => promoInput.value?.focus(), 50)
+  } else {
+    // закривається модалка
     promoCode.value = ''
     foundPromo.value = null
     searching.value = false
-
-    // скасовуємо відкладений пошук, якщо був
+    scannedList.value = []
     if (searchTimeout) clearTimeout(searchTimeout)
   }
 })
+
 
 function onClearPromo() {
   // у Vuetify clear ставить null — явно приводимо до ''
@@ -221,6 +250,39 @@ async function attachPromo() {
     await loadDistributor()
   } catch (e) {
     snackbarText.value = 'Помилка при прикріпленні'
+    snackbarColor.value = 'error'
+    snackbar.value = true
+  }
+}
+async function attachAllPromos() {
+  if (!record.value) return
+
+  try {
+    for (const promo of scannedList.value) {
+      // пропускаємо прикріплені коди
+      if (promo.usedByUserId) continue
+
+      await axios.post(API_URL, {
+        action: 'attachPromocode',
+        data: {
+          distributorId: record.value.id,
+          promocodeId: promo.id
+        }
+      })
+    }
+
+    snackbarText.value = 'Усі промокоди прикріплено'
+    snackbarColor.value = 'success'
+    snackbar.value = true
+
+    scannedList.value = []
+    promoDialog.value = false
+
+    await loadDistributor()
+
+  } catch (error) {
+    console.error(error)
+    snackbarText.value = 'Помилка при масовому додаванні'
     snackbarColor.value = 'error'
     snackbar.value = true
   }
@@ -429,20 +491,20 @@ function onPromoRowClick(_: MouseEvent, row: any) {
                   >
                     <template #headers>
                       <tr>
+                        <th>#</th>
                         <th>Код</th>
                         <th>Статус</th>
                         <th>Дата активації</th>
                         <th>Користувач</th>
                         <th>Тривалість (міс)</th>
                         <th>Хв/день</th>
+                        <th>Штрихкод</th>
                       </tr>
                     </template>
 
-                    <template #item="{ item }">
-                      <tr
-                        style="cursor: pointer"
-                        @click="onPromoRowClick($event, { item })"
-                      >
+                    <template #item="{ item, index }">
+                      <tr @click="onPromoRowClick($event, { item })" style="cursor:pointer">
+                        <td>{{ index + 1 }}</td>
                         <td class="font-weight-medium">{{ item.code || item.barcode }}</td>
                         <td>
                           <VChip size="small" :color="isActive(item) ? 'success' : 'error'">
@@ -451,13 +513,14 @@ function onPromoRowClick(_: MouseEvent, row: any) {
                         </td>
                         <td>{{ new Date(item.dateUsed).toLocaleDateString('uk-UA') }}</td>
                         <td>
-        <span v-if="item.user" class="text-primary">
-          {{ item.user.name || item.user.email || item.user.id }}
-        </span>
+      <span v-if="item.user" class="text-primary">
+        {{ item.user.name || item.user.email || item.user.id }}
+      </span>
                           <span v-else>—</span>
                         </td>
                         <td>{{ item.durationInMonths ?? '—' }}</td>
                         <td>{{ item.dailyPlayTimeMinutes ?? '—' }}</td>
+                        <td>{{ item.barcode ?? '—' }}</td>
                       </tr>
                     </template>
                   </VDataTable>
@@ -496,17 +559,22 @@ function onPromoRowClick(_: MouseEvent, row: any) {
                   >
                     <template #headers>
                       <tr>
+                        <th>#</th>
                         <th>Код</th>
                         <th>Тривалість (міс)</th>
                         <th>Хв/день</th>
+                        <th>Штрихкод</th>
                       </tr>
                     </template>
 
-                    <template #item="{ item }">
+                    <template #item="{ item, index }">
                       <tr>
+                        <td>{{ index + 1 }}</td>
                         <td class="font-weight-medium">{{ item.code || item.barcode }}</td>
                         <td>{{ item.durationInMonths ?? '—' }}</td>
                         <td>{{ item.dailyPlayTimeMinutes ?? '—' }}</td>
+                        <td>{{ item.barcode ?? '—' }}</td>
+
                       </tr>
                     </template>
                   </VDataTable>
@@ -651,6 +719,7 @@ function onPromoRowClick(_: MouseEvent, row: any) {
         <VCardTitle>Додати промокод</VCardTitle>
         <VCardText class="p-0">
           <VTextField
+            ref="promoInput"
             label="Введіть промокод або штрихкод"
             v-model="promoCode"
             clearable
@@ -660,26 +729,96 @@ function onPromoRowClick(_: MouseEvent, row: any) {
           <VBtn color="primary" class="mt-3" @click="searchPromo" :loading="searching">
             Знайти
           </VBtn>
+          <!-- Список просканованих промокодів -->
+          <div    v-if="scannedList.length">
+            <h4 class="mb-2">Проскановані промокоди ({{ scannedList.length }}):</h4>
 
-          <VAlert v-if="foundPromo" type="info" class="mt-4">
-            <div><b>Код:</b> {{ foundPromo.code || foundPromo.barcode }}</div>
-            <div><b>Тривалість:</b> {{ foundPromo.durationInMonths }} міс.</div>
-            <div><b>Активовано:</b> {{ foundPromo.isActivated ? 'Так' : 'Ні' }}</div>
-            <!--            {{foundPromo}}-->
-            <div><b>Дата створення:</b> {{ new Date(foundPromo.dateCreated).toLocaleString() }}</div>
-            <div>
-              <b>Дата використання:</b>
-              {{ foundPromo?.dateUsed ? new Date(foundPromo.dateUsed).toLocaleString() : '—' }}
-            </div>
+            <VAlert  type="info" class="mt-4"
+                     v-for="p in scannedList"
+              :key="p.id"
 
-            <div>
-              <b>ID користувач:</b>
-              {{ foundPromo?.usedByUserId || '—' }}
-            </div>
-            <VBtn color="success" class="mt-3" @click="attachPromo" style="    text-transform: inherit;">
-              Прикріпити до дистриб’ютора
+
+            >
+              <div><b>Код:</b> {{ p.code }}</div>
+              <div><b>Штрихкод:</b>     {{ p.barcode || '—' }}</div>
+              <div><b>Тривалість:</b> {{ p.durationInMonths }} міс.</div>
+
+              <div>
+                <b>Активовано:</b>
+                {{ p.isActivated ? 'Так' : 'Ні' }}
+              </div>
+
+              <div>
+                <b>Дата створення:</b>
+                {{ p.dateCreated ? new Date(p.dateCreated).toLocaleString() : '—' }}
+              </div>
+
+              <div>
+                <b>Дата використання:</b>
+                {{ p.dateUsed ? new Date(p.dateUsed).toLocaleString() : '—' }}
+              </div>
+
+<!--              <div>-->
+<!--                <b>ID користувача:</b>-->
+<!--                {{ p.usedByUserId || '—' }}-->
+<!--              </div>-->
+
+              <VAlert
+                v-if="p.usedByUserId"
+                type="warning"
+                class="mt-2"
+                density="compact"
+              >
+                Промокод вже прикріплений до користувача
+              </VAlert>
+            </VAlert>
+
+            <VBtn
+              color="success"
+              class="mt-4"
+              @click="attachAllPromos"
+              style="text-transform: inherit;"
+            >
+              Прикріпити всі ({{ scannedList.length }})
             </VBtn>
-          </VAlert>
+          </div>
+
+
+
+          <!--          <VAlert v-if="foundPromo" type="info" class="mt-4">-->
+<!--            <div><b>Код:</b> {{ foundPromo.code || foundPromo.barcode }}</div>-->
+<!--            <div><b>Тривалість:</b> {{ foundPromo.durationInMonths }} міс.</div>-->
+<!--            <div><b>Активовано:</b> {{ foundPromo.isActivated ? 'Так' : 'Ні' }}</div>-->
+<!--            &lt;!&ndash;            {{foundPromo}}&ndash;&gt;-->
+<!--            <div><b>Дата створення:</b> {{ new Date(foundPromo.dateCreated).toLocaleString() }}</div>-->
+<!--            <div>-->
+<!--              <b>Дата використання:</b>-->
+<!--              {{ foundPromo?.dateUsed ? new Date(foundPromo.dateUsed).toLocaleString() : '—' }}-->
+<!--            </div>-->
+
+<!--            <div>-->
+<!--              <b>ID користувач:</b>-->
+<!--              {{ foundPromo?.usedByUserId || '—' }}-->
+<!--            </div>-->
+<!--&lt;!&ndash;            <VBtn color="success" class="mt-3" @click="attachPromo" style="    text-transform: inherit;">&ndash;&gt;-->
+<!--&lt;!&ndash;              Прикріпити до дистриб’ютора&ndash;&gt;-->
+<!--&lt;!&ndash;            </VBtn>&ndash;&gt;-->
+<!--            <div v-if="foundPromo?.usedByUserId">-->
+<!--              <VAlert type="warning" class="mt-3">-->
+<!--                Промокод вже прикріплений до користувача-->
+<!--              </VAlert>-->
+<!--            </div>-->
+
+<!--            <VBtn-->
+<!--              v-else-->
+<!--              color="success"-->
+<!--              class="mt-3"-->
+<!--              @click="attachPromo"-->
+<!--              style="text-transform: inherit;"-->
+<!--            >-->
+<!--              Прикріпити до дистриб’ютора-->
+<!--            </VBtn>-->
+<!--          </VAlert>-->
         </VCardText>
       </VCard>
     </VDialog>
