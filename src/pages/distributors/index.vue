@@ -27,7 +27,6 @@ type Distributor = {
   phone: string
   city: string
   login: string
-  password: string
   createdAt?: FirestoreTimestamp
   updatedAt?: FirestoreTimestamp
 }
@@ -41,7 +40,9 @@ const query = ref('')
 const loading = ref(false)
 const error = ref('')
 const snackbar = ref(false)
+const snackbarColor = ref<'success' | 'error'>('success')
 const message = ref('')
+
 
 const headers = [
   { title: 'Тип', key: 'type', sortable: false, width: 140 },
@@ -49,7 +50,6 @@ const headers = [
   { title: 'Телефон', key: 'phone', sortable: true, width: 160 },
   { title: 'Місто', key: 'city', sortable: true, width: 140 },
   { title: 'Логін', key: 'login', sortable: true, width: 140 },
-  { title: 'Пароль', key: 'password', sortable: false, width: 120 },
   { title: 'Дата створення', key: 'createdAt', sortable: true, width: 140 },
 ]
 // -------- Завантаження списку --------
@@ -84,16 +84,33 @@ const viewItems = computed(() => {
 const createDialog = ref(false)
 async function onCreate(payload: Omit<Distributor, 'id'>) {
   try {
-    await axios.post(API_URL, { action: "create", data: payload })
-    message.value = "Дистриб’ютора створено"
+    const res = await axios.post(API_URL, {
+      action: "create",
+      data: payload,
+    })
+
+    if (!res.data.success) {
+      message.value = res.data.message
+      snackbarColor.value = 'error'
+      snackbar.value = true
+      return
+    }
+
+    message.value = 'Дистриб’ютора створено'
+    snackbarColor.value = 'success'
     snackbar.value = true
+
     createDialog.value = false
     await loadDistributors()
+
   } catch (e) {
-    message.value = "Помилка при створенні"
+    message.value = 'Помилка зʼєднання з сервером'
+    snackbarColor.value = 'error'
     snackbar.value = true
   }
 }
+
+
 
 // -------- Перехід у карточку --------
 // -------- Перехід у карточку --------
@@ -262,7 +279,13 @@ onMounted(() => {
     </VDialog>
   </VContainer>
 
-  <VSnackbar v-model="snackbar" timeout="3000">
+  <VSnackbar
+    v-model="snackbar"
+    :color="snackbarColor"
+    location="top center"
+    timeout="3500"
+  >
     {{ message }}
   </VSnackbar>
+
 </template>

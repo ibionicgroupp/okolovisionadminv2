@@ -10,6 +10,7 @@ type Distributor = {
   login: string
   password: string
 }
+const isEdit = computed(() => !!props.initial?.id)
 
 const props = defineProps<{ initial?: Distributor }>()
 const emit = defineEmits<{ (e: 'submit', payload: Omit<Distributor, 'id'>): void }>()
@@ -77,6 +78,8 @@ function onPhonePaste(e: ClipboardEvent) {
 
 // ---- Правила валідації ----
 const requiredRule = (v: string) => !!v?.trim() || 'Обов’язкове поле'
+const okoloEmailRule = (v: string) =>
+  v.endsWith('@okolo.vision') || 'Email має закінчуватись на @okolo.vision'
 const phoneRule = (v: string) =>
   onlyDigits(v).length === 12 || 'Невірний номер телефону (повинно бути 12 цифр: 380XXXXXXXXX)'
 
@@ -86,8 +89,8 @@ const valid = computed(() =>
   name.value.trim() &&
   city.value.trim() &&
   login.value.trim() &&
-  password.value.trim() &&
-  onlyDigits(phone.value).length === 12,
+  onlyDigits(phone.value).length === 12 &&
+  (isEdit.value || password.value.trim())
 )
 
 // ------- Генератор паролю -------
@@ -101,21 +104,25 @@ function genPassword(len = 10) {
 // ---- Сабміт ----
 function submit() {
   if (!valid.value) {
-    showSnackbar('Заповніть усі обов’язкові поля', 'error')
+    showSnackbar('Заповніть усі обовʼязкові поля', 'error')
     return
   }
 
-  emit('submit', {
+  const payload: any = {
     type: type.value,
     name: name.value.trim(),
     phone: phone.value.trim(),
     city: city.value.trim(),
-    login: login.value.trim(),
-    password: password.value,
-  })
+  }
 
-  showSnackbar('Дані успішно відправлено', 'success')
+  if (!isEdit.value) {
+    payload.login = login.value.trim()
+    payload.password = password.value
+  }
+
+  emit('submit', payload)
 }
+
 </script>
 
 <template>
@@ -171,26 +178,28 @@ function submit() {
       </VCol>
 
       <VCol cols="12" md="6">
-        <VTextField
-          label="Логін"
-          v-model="login"
-          :rules="[requiredRule]"
-          required
-          validate-on="blur"
-        />
+          <VTextField
+            label="Логін"
+            v-model="login"
+            :rules="[requiredRule, okoloEmailRule]"
+            :disabled="isEdit"
+            required
+            validate-on="blur"
+          />
       </VCol>
 
-      <VCol cols="12" md="6">
+      <VCol cols="12" md="6" v-if="!isEdit">
         <VTextField
           label="Пароль"
           v-model="password"
           type="text"
           :rules="[requiredRule]"
           required
-          validate-on="blur"
         >
           <template #append-inner>
-            <VBtn size="small" variant="tonal" @click="genPassword()">Згенерувати</VBtn>
+            <VBtn size="small" variant="tonal" @click="genPassword()">
+              Згенерувати
+            </VBtn>
           </template>
         </VTextField>
       </VCol>

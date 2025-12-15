@@ -325,12 +325,13 @@ async function loadPromocodesForDistributor() {
 const props = defineProps({
   record: Object
 })
-const showPassword = ref(false)
+// const showPassword = ref(false)
+//
+// const maskedPassword = computed(() => {
+//   const pwd = props.record?.password || ''
+//   return '*'.repeat(pwd.length)
+// })
 
-const maskedPassword = computed(() => {
-  const pwd = props.record?.password || ''
-  return '*'.repeat(pwd.length)
-})
 
 
 function isActive(promo: any) {
@@ -357,6 +358,56 @@ function onPromoRowClick(_: MouseEvent, row: any) {
     window.open(`/distributors/userStat?id=${userId}`, '_blank')
   }
 }
+
+const newPassword = ref("")
+
+async function changePassword() {
+  if (!newPassword.value) {
+    alert("Введи новий пароль")
+    return
+  }
+
+  try {
+    const auth = getAuth()
+    const u = auth.currentUser
+    if (!u) {
+      alert("Не авторизований")
+      return
+    }
+
+    // 🔑 актуальний Firebase token
+    const token = await u.getIdToken(true)
+
+    const res = await axios.post(
+      API_URL,
+      {
+        action: "adminSetDistributorPassword",
+        id: record.value!.id,
+        data: {
+          password: newPassword.value,
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    )
+
+    if (!res.data.success) {
+      alert(res.data.message)
+      return
+    }
+
+    alert("Пароль успішно змінено")
+    newPassword.value = ""
+
+  } catch (e) {
+    console.error(e)
+    alert("Помилка зміни паролю")
+  }
+}
+
 
 </script>
 
@@ -415,26 +466,31 @@ function onPromoRowClick(_: MouseEvent, row: any) {
         <VCol cols="12" md="4">
           <div class="text-medium-emphasis mb-1">Пароль</div>
 
-          <div class="d-flex align-center">
-            <template v-if="showPassword">
-              {{ record?.password }}
-            </template>
-            <template v-else>
-              ********
-            </template>
-            <!--            <div class="text-body-1 font-weight-medium">-->
-            <!--              {{ showPassword ? record?.password : maskedPassword }}-->
-            <!--            </div>-->
-
-            <v-btn
-              size="small"
-              variant="text"
-              class="ml-2"
-              @click="showPassword = !showPassword"
-            >
-              {{ showPassword ? 'Сховати' : 'Показати' }}
-            </v-btn>
+          <div class="d-flex">
+            <v-text-field v-model="newPassword" />
+            <v-btn @click="changePassword" class="ml-3">Змінити</v-btn>
           </div>
+
+          <!--          <div class="d-flex align-center">-->
+<!--            <template v-if="showPassword">-->
+<!--              {{ record?.password }}-->
+<!--            </template>-->
+<!--            <template v-else>-->
+<!--              ********-->
+<!--            </template>-->
+<!--            &lt;!&ndash;            <div class="text-body-1 font-weight-medium">&ndash;&gt;-->
+<!--            &lt;!&ndash;              {{ showPassword ? record?.password : maskedPassword }}&ndash;&gt;-->
+<!--            &lt;!&ndash;            </div>&ndash;&gt;-->
+
+<!--            <v-btn-->
+<!--              size="small"-->
+<!--              variant="text"-->
+<!--              class="ml-2"-->
+<!--              @click="showPassword = !showPassword"-->
+<!--            >-->
+<!--              {{ showPassword ? 'Сховати' : 'Показати' }}-->
+<!--            </v-btn>-->
+<!--          </div>-->
         </VCol>
 
         <VCol cols="12" md="4">
