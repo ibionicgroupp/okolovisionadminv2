@@ -259,9 +259,6 @@ async function attachAllPromos() {
 
   try {
     for (const promo of scannedList.value) {
-      // пропускаємо прикріплені коди
-      if (promo.usedByUserId) continue
-
       await axios.post(API_URL, {
         action: 'attachPromocode',
         data: {
@@ -819,13 +816,36 @@ async function changePassword() {
 <!--                {{ p.usedByUserId || '—' }}-->
 <!--              </div>-->
 
+              <!-- 🔸 Використаний користувачем -->
               <VAlert
-                v-if="p.usedByUserId"
-                type="warning"
-                class="mt-2"
+                v-if="p.user"
+                type="info"
                 density="compact"
+                class="mt-2"
               >
-                Промокод вже прикріплений до користувача
+                Використаний користувачем:
+                <b>{{ p.user.name || p.user.email || p.user.id }}</b>
+              </VAlert>
+
+              <!-- 🔸 Уже доданий до іншого дистрибʼютора -->
+              <VAlert
+                v-else-if="p.attachedDistributor && p.attachedDistributor.id !== record?.id"
+                type="warning"
+                density="compact"
+                class="mt-2"
+              >
+                Уже доданий до дистрибʼютора:
+                <b>{{ p.attachedDistributor.name || p.attachedDistributor.login }}</b>
+              </VAlert>
+
+              <!-- 🟢 Доданий саме до цього дистрибʼютора -->
+              <VAlert
+                v-else-if="p.attachedDistributor && p.attachedDistributor.id === record?.id"
+                type="success"
+                density="compact"
+                class="mt-2"
+              >
+                Доданий до цього дистрибʼютора
               </VAlert>
             </VAlert>
 

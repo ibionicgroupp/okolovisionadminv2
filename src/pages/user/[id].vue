@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import {ref, onMounted, computed} from 'vue'
-import {useRoute, useRouter} from 'vue-router'
-import axios from 'axios'
 import themeUser from '@images/pages/user-profile-header-bg.png'
+import axios from 'axios'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 
 // CF-ендпоінт
@@ -12,8 +12,8 @@ const CF_UPDATE_PROFILE = 'https://us-central1-okolovision-48840.cloudfunctions.
 definePage({meta: {layout: 'default'}})
 
 // ТВОЇ компоненти
-import DailyPlayTimesChart from '@/custom/components/DailyPlayTimesChart.vue'
 import ClinicUsersTable from '@/custom/components/ClinicUsersTable.vue'
+import DailyPlayTimesChart from '@/custom/components/DailyPlayTimesChart.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -247,13 +247,17 @@ function updateFormattedDate(val: any) {
     return
   }
 
-  const d = new Date(val)
+  // Якщо це вже Date об'єкт від VDatePicker, використовуємо його напряму
+  const d = val instanceof Date ? val : new Date(val)
   if (!isNaN(d.getTime())) {
     editForm.value.subscriptionEndDateFormatted = d.toLocaleDateString('uk-UA', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
     })
+  } else {
+    // Якщо дата невалідна, очищаємо поле
+    editForm.value.subscriptionEndDateFormatted = ''
   }
 }
 
@@ -262,7 +266,12 @@ function editUser() {
   if (!user.value) return
 
   const rawDate = user.value.subscription?.subscriptionEndDate
-  const dateObj = rawDate ? new Date(rawDate) : null
+  // Діагностика: перевіряємо що приходить з бази
+  console.log('🔍 Raw date from DB:', rawDate, 'Type:', typeof rawDate)
+  
+  // Використовуємо parseSubDate для коректного парсингу різних форматів дат
+  const dateObj = parseSubDate(rawDate)
+  console.log('📅 Parsed date object:', dateObj)
 
   editForm.value = {
     firstName: user.value.firstName ?? '',
@@ -324,7 +333,14 @@ async function saveUser() {
   function normalizeDate(d: any) {
     if (!d) return null
     const date = d instanceof Date ? d : new Date(d)
-    return !isNaN(date.getTime()) ? date.toISOString() : null
+    if (isNaN(date.getTime())) return null
+    
+    // Форматуємо дату у форматі dd-MM-yyyy
+    const dd = String(date.getDate()).padStart(2, "0")
+    const mm = String(date.getMonth() + 1).padStart(2, "0")
+    const yyyy = date.getFullYear()
+    
+    return `${dd}-${mm}-${yyyy}`
   }
 
   try {
