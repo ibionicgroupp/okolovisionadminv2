@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import { CLOUD_FUNCTIONS } from '@/utils/cloudFunctions'
 import axios from 'axios'
 import { ArcElement, BarElement, CategoryScale, Chart, Legend, LinearScale, LineElement, PointElement, Tooltip } from 'chart.js'
 import { computed, onMounted, ref } from 'vue'
 import { Bar } from 'vue-chartjs'
-import { CLOUD_FUNCTIONS } from '@/utils/cloudFunctions'
 
 Chart.register(BarElement, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, ArcElement)
 

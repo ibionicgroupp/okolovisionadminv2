@@ -5,9 +5,11 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 
+import { CLOUD_FUNCTIONS } from '@/utils/cloudFunctions'
+
 // CF-ендпоінт
-const CF_ENDPOINT = 'https://us-central1-okolovision-48840.cloudfunctions.net/userGetData'
-const CF_UPDATE_PROFILE = 'https://us-central1-okolovision-48840.cloudfunctions.net/userUpdateProfile'
+const CF_ENDPOINT = CLOUD_FUNCTIONS.USER_GET_DATA
+const CF_UPDATE_PROFILE = CLOUD_FUNCTIONS.USER_UPDATE_PROFILE
 
 definePage({meta: {layout: 'default'}})
 
@@ -168,7 +170,7 @@ const gamesList = computed(() => {
 onMounted(fetchUser)
 
 // CF endpoint для оновлення isClinic
-const CF_UPDATE_CLINIC = 'https://us-central1-okolovision-48840.cloudfunctions.net/userUpdateIsClinic'
+const CF_UPDATE_CLINIC = CLOUD_FUNCTIONS.USER_UPDATE_CLINIC
 
 async function toggleClinic(e: Event) {
   if (!user.value) return
@@ -470,7 +472,7 @@ const loadingClinicUsers = ref(false)
 async function fetchClinicUsers(clinicId: string) {
   loadingClinicUsers.value = true
   try {
-    const res = await axios.post("https://admingetclinicusersv2-956914206562.europe-west1.run.app", {clinicId})
+    const res = await axios.post(CLOUD_FUNCTIONS.ADMIN_GET_CLINIC_USERS, { clinicId })
     clinicUsers.value = res.data?.users ?? []
   } catch (e) {
     console.error("Помилка завантаження користувачів клініки", e)

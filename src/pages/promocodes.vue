@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import {ref, computed, onMounted, watch} from 'vue'
 import axios from 'axios'
+import { computed, onMounted, ref, watch } from 'vue'
 
-const CF_ENDPOINT_GET = 'https://us-central1-okolovision-48840.cloudfunctions.net/promocodeGetAll'
+import { CLOUD_FUNCTIONS } from '@/utils/cloudFunctions'
+
+const CF_ENDPOINT_GET = CLOUD_FUNCTIONS.PROMOCODE_GET_ALL
 // const CF_ENDPOINT_ADD = 'https://us-central1-okolovision-48840.cloudfunctions.net/promocodeAdd'
-const CF_ENDPOINT_PROMOCODE_ADD = 'https://adminpromocodewithbarcodeaddv2-956914206562.europe-west1.run.app'
+const CF_ENDPOINT_PROMOCODE_ADD = CLOUD_FUNCTIONS.ADMIN_PROMOCODE_ADD
 
 type Promo = {
   id: string

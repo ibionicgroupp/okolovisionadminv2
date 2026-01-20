@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import axios from 'axios'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import UserStats from "../pages/UserStats.vue"
-import axios from 'axios'
 
 definePage({ meta: { layout: 'default' } })
 const router = useRouter()
 
+import { CLOUD_FUNCTIONS } from '@/utils/cloudFunctions'
+
 /* ---------------- CONFIG ---------------- */
-const CF_ENDPOINT = "https://adminlistuserslitev2-956914206562.europe-west1.run.app"
+const CF_ENDPOINT = CLOUD_FUNCTIONS.ADMIN_LIST_USERS
 // Пошуковий ендпоінт більше не потрібен — все робимо на фронті
 // const SEARCH_ENDPOINT = "..."
 

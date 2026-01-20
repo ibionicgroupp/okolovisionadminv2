@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import {watch} from 'vue'
-import {getAuth, onAuthStateChanged} from "firebase/auth"
-import {ref, onMounted, computed} from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import axios from 'axios'
 import DistributorForm from '@/components/distributors/DistributorForm.vue'
+import axios from 'axios'
+import { getAuth, onAuthStateChanged } from "firebase/auth"
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 // definePage({ meta: { layout: 'default' } }) // ⬅️ Прибираємо public:true
 
@@ -19,7 +18,9 @@ definePage({
 const isAdmin = ref(false)
 // definePage({ meta: { layout: 'default' } })
 
-const API_URL = "https://admindistributorsv2-956914206562.europe-west1.run.app"
+import { CLOUD_FUNCTIONS } from '@/utils/cloudFunctions'
+
+const API_URL = CLOUD_FUNCTIONS.ADMIN_DISTRIBUTORS
 
 
 const promoInput = ref()

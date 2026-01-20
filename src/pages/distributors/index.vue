@@ -12,7 +12,9 @@ definePage({
 })
 
 // 🔗 URL Cloud Run (твій бекенд)
-const API_URL = "https://admindistributorsv2-956914206562.europe-west1.run.app"
+import { CLOUD_FUNCTIONS } from '@/utils/cloudFunctions'
+
+const API_URL = CLOUD_FUNCTIONS.ADMIN_DISTRIBUTORS
 
 // --------- Типи ---------
 type FirestoreTimestamp = {
