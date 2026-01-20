@@ -41,3 +41,9 @@ public/mockServiceWorker.js
 # Env files
 .env*
 !.env.example
+
+# Firebase service account keys (NEVER commit these!)
+**/serviceAccountKey.json
+**/*serviceAccount*.json
+firebase-role-setup/
+*.json.key
