@@ -1,0 +1,17 @@
+{
+  "name": "get-statistics",
+  "version": "1.0.0",
+  "description": "Cloud function for statistics",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^11.0.1",
+    "firebase-functions": "^4.3.0",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": "20"
+  }
+}

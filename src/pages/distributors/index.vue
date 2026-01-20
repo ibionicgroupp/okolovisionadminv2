@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import axios from 'axios'
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
 import DistributorForm from '@/components/distributors/DistributorForm.vue'
+import axios from 'axios'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 definePage({
   name: 'distributors-list',
@@ -172,7 +172,7 @@ onMounted(() => {
 
 
 <template>
-  <VContainer fluid>
+ 
     <VCard>
       <VCardTitle class="d-flex align-center justify-space-between">
         <div class="d-flex align-center gap-4">
@@ -277,7 +277,7 @@ onMounted(() => {
         </VCardText>
       </VCard>
     </VDialog>
-  </VContainer>
+ 
 
   <VSnackbar
     v-model="snackbar"
